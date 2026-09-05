@@ -186,6 +186,10 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
   const t = (ko: string, english: string) => (en ? english : ko);
   const { id: locationId } = use(params);
 
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   const [location, setLocation] = useState<KoreanLocation | null>(null);
   const [selectedImgIdx, setSelectedImgIdx] = useState(0);
 

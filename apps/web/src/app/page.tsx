@@ -23,6 +23,10 @@ type Locale = "ko" | "en";
 export function StageSightHome({ locale = "ko" }: { locale?: Locale }) {
   const en = locale === "en";
   const t = (ko: string, english: string) => (en ? english : ko);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
   const [activeTab, setActiveTab] = useState<"catalog" | "script">("catalog");
 
   // Saved count and avatar come from the local user store until accounts exist.

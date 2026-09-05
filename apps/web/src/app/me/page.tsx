@@ -63,6 +63,10 @@ export default function MyPage() {
   const en = usePathname().startsWith("/en/");
   const locale = en ? "en" : "ko";
   const t = (ko: string, english: string) => (en ? english : ko);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
   const { profile, saved, conversations } = useUserState();
   const [tab, setTab] = useState<"saved" | "chats" | "renders">("saved");
   const [renders, setRenders] = useState<RenderRecord[]>([]);
