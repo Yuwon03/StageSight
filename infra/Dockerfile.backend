@@ -1,0 +1,33 @@
+# StageSight agent API — FastAPI + Gemini + Parallel Search.
+# Build context is the repo root (the app imports services/crawler/providers for
+# the source roadmap), so paths below are repo-relative.
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PORT=8080
+
+WORKDIR /app
+
+# opencv-python-headless still needs libglib for its imgproc bindings; the rest
+# of libGL is avoided by using the headless build. curl is for the healthcheck.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libglib2.0-0 curl \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY services/agent/requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+COPY services/agent/ /app/
+# The provider registry lives with the crawler and is imported by /api/providers.
+COPY services/crawler/ /crawler/
+
+# The catalogue ships inside the image. Cloud Run has no persistent disk, so a
+# crawl cannot accumulate anything there — the deployed service serves the
+# snapshot taken at build time and says so. Rebuilding is how it is refreshed.
+ENV STAGESIGHT_DB_PATH=/app/data/catalog.db \
+    PYTHONPATH=/app:/crawler
+
+EXPOSE 8080
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

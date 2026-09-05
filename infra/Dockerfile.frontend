@@ -1,0 +1,29 @@
+# StageSight web — Next.js 15 standalone output.
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+COPY apps/web/package*.json ./
+RUN npm ci
+
+COPY apps/web/ ./
+
+# NEXT_PUBLIC_* is inlined at build time, not read at runtime — so the backend
+# has to exist before this image is built, and deploy.sh orders it that way.
+ARG NEXT_PUBLIC_API_BASE_URL
+ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL} \
+    NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000
+
+# public/ is optional in Next.js and this app had none — the build failed on a
+# COPY of a path that did not exist. Kept as a real copy (the directory now
+# exists in the repo) rather than a glob trick, so a missing asset is loud.
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+EXPOSE 3000
+CMD ["node", "server.js"]

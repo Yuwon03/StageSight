@@ -1,0 +1,1 @@
+# StageSight Agent Package

@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* StageSight design tokens — warm paper surface, teal primary */
+  --paper: #faf9f6;
+  --card: #ffffff;
+  --ink: #1b1a18;
+  --ink-soft: #55524d;
+  --ink-faint: #97928a;
+  --line: #e8e5e0;
+  --line-strong: #d8d4cc;
+  --teal: #0f8e7e;
+  --teal-deep: #0b6e62;
+  --teal-tint: #e3f0ec;
+  --teal-ink: #0a5d53;
+  --amber: #a36923;
+  --amber-bright: #e0a32e;
+  --amber-tint: #f7eed9;
+  --red: #c2452d;
+  --red-tint: #f9e9e4;
+  --calc: #5b67a8;
+  --calc-tint: #e9eaf4;
+
+  /* Motion: one curve, three speeds */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --fast: 0.18s; /* tint */
+  --base: 0.22s; /* lift */
+  --slow: 0.3s; /* reveal */
+}
+
+body {
+  color: var(--ink);
+  background: var(--paper);
+  overflow-x: hidden;
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--teal);
+  color: #ffffff;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
