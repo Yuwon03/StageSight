@@ -98,6 +98,19 @@ export const ScriptMatcherPanel: React.FC<{ locale?: "ko" | "en" }> = ({ locale 
   const displayTitle = (title: string) => (en && title === "새 대화" ? "New conversation" : title);
   const initialScript = en ? DEFAULT_SCRIPT_EN : DEFAULT_SCRIPT;
   const greeting = en ? GREETING_EN : GREETING;
+  const localizeDefaultScript = (text?: string) => {
+    if (!text) return initialScript;
+    if (en && text === DEFAULT_SCRIPT) return DEFAULT_SCRIPT_EN;
+    if (!en && text === DEFAULT_SCRIPT_EN) return DEFAULT_SCRIPT;
+    return text;
+  };
+  const localizeSystemMessages = (items: ChatMessage[]): ChatMessage[] =>
+    items.map((message) => {
+      if (message.role !== "assistant") return message;
+      if (en && message.content === GREETING) return { ...message, content: GREETING_EN };
+      if (!en && message.content === GREETING_EN) return { ...message, content: GREETING };
+      return message;
+    });
   const { conversations } = useUserState();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -106,7 +119,7 @@ export const ScriptMatcherPanel: React.FC<{ locale?: "ko" | "en" }> = ({ locale 
   const pickedInitial = useRef(false);
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
-  const messages: ChatMessage[] = active?.messages ?? [];
+  const messages: ChatMessage[] = localizeSystemMessages(active?.messages ?? []);
   const threadLocations = active?.locations ?? [];
   const threadScenes = active?.scenes ?? [];
 
@@ -153,7 +166,7 @@ export const ScriptMatcherPanel: React.FC<{ locale?: "ko" | "en" }> = ({ locale 
   useEffect(() => {
     if (!activeId) return;
     const c = conversations.find((x) => x.id === activeId);
-    setScriptText(c?.scriptText ?? initialScript);
+    setScriptText(localizeDefaultScript(c?.scriptText));
     setUploadInfo(null);
     setUploadError(null);
     setExcerpt(null);
@@ -235,7 +248,7 @@ export const ScriptMatcherPanel: React.FC<{ locale?: "ko" | "en" }> = ({ locale 
   const handleRunScriptAnalysis = async () => {
     const threadId = ensureThread();
     const thread = conversations.find((c) => c.id === threadId);
-    const base = thread?.messages ?? [];
+    const base = localizeSystemMessages(thread?.messages ?? []);
     const run = (thread?.analysisCount ?? 0) + 1;
 
     setIsAnalyzing(true);
@@ -306,7 +319,7 @@ export const ScriptMatcherPanel: React.FC<{ locale?: "ko" | "en" }> = ({ locale 
     const thread = conversations.find((c) => c.id === threadId);
     const attached = excerpt;
     const updated: ChatMessage[] = [
-      ...(thread?.messages ?? []),
+      ...localizeSystemMessages(thread?.messages ?? []),
       { role: "user", content: query, script_excerpt: attached ?? undefined },
     ];
 
