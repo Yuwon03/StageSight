@@ -1,6 +1,6 @@
 # Submission readiness — 5 September 2026
 
-Later update: English workspace and English permit research are now deployed. Source committed locally as `d48c3e0`; see [release verification](RELEASE_2026-09-05.md). The inventory findings below describe the pre-release audit.
+Later update: the English workspace and permit research are deployed. The audited release is public at https://github.com/Yuwon03/StageSight; see [release verification](RELEASE_2026-09-05.md).
 
 ## Repository inventory
 
@@ -27,11 +27,11 @@ Provide a hosted URL, public GitHub/GitLab/Bitbucket repository, detectable open
 
 ## Findings and priority
 
-1. Local git has no remote configured. Latest commit is `de50555` dated 29 August; many current files are modified/untracked. Deployment does not publish source. A remote repository elsewhere may exist, but it is not linked here.
-2. Apache-2.0 LICENSE exists and is tracked. Check visibility/detection after publishing. Do not include secrets, personal scripts, caches, or third-party catalogue/photos under the code license without appropriate rights.
+1. The audited 93-file release is pushed to the public `Yuwon03/StageSight` repository. The local development repository keeps its fuller history and tracks the public release separately as `public-main`.
+2. GitHub detects the tracked Apache-2.0 LICENSE. Secrets, local catalogue data, PDFs, internal assistant material and generated evaluation results are excluded from the public release.
 3. No mandatory commit count or development diary was found. Commit real changes, push the runnable release, and record its SHA/tag in the submission. Never fabricate historical logs. Freeze the submitted version at the deadline.
-4. `parallel_search.py` imports and calls Parallel Search; verify the live judge journey reaches it and exposes usable evidence. A healthy API alone does not prove a successful partner call.
-5. `workflow.py` calls itself an ADK workflow but is a custom Python orchestrator; do not claim actual ADK usage based on the docstring alone.
+4. `parallel_search.py` imports and calls Parallel Search. A live deployed request returned sourced English results; demonstrate this same path in the video.
+5. The project uses a custom Python orchestrator and the Google Gen AI SDK. Public descriptions no longer claim an ADK or Vertex AI runtime.
 6. The current account experience is localStorage, not authenticated cloud accounts. Registration is not needed for the guest scouting workflow. Prioritize reliable browsing, source attribution, AI results, partner evidence, error states, and an English demo before building authentication.
 7. `/en` adds English catalogue pagination, category labels, venue selection, source link, fixed-viewpoint lighting preview, comparison and download, plus no-derivative enforcement. Korean source names remain intact. Screenplay matching and personal activity are not yet localized. This is a scoped English workspace, not full localization.
 
@@ -41,4 +41,4 @@ Open `/en`, select a category and real venue, inspect the original listing, sele
 
 ## Publication status
 
-No repository was created or pushed by this review. New English source is local and has not been deployed. `npm run build` passed, including TypeScript validation and `/en` prerendering. Browser interaction and live generation through the new page have not yet been verified. Existing Cloud Run web revision is `stagesight-web-00005-fs7`, URL `https://stagesight-web-c7gdwequ2q-uc.a.run.app`; API health returned healthy. A repository-wide whitespace check reports a pre-existing trailing blank line in `services/agent/app/models/korean_locations.py:83`.
+The English release is deployed and browser-verified. The public repository, README and Apache-2.0 license are accessible. Demo video creation and the completed Devpost form remain separate submission tasks.
