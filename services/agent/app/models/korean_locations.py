@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.models.schemas import ParallelCitation
 
 class LocationSpec(BaseModel):
@@ -13,6 +13,20 @@ class LocationSpec(BaseModel):
     parking_spots: int
     has_freight_elevator: bool
     sound_recording_quality: str  # e.g. "동시녹음 완벽 (방음 시공)", "보통 (주변 생활 소음 가능)"
+
+
+class OriginalLocationText(BaseModel):
+    """Source-language values retained on an English display copy.
+
+    These are not shown in the English UI, but production tools can still use
+    the exact Korean listing title/address when researching permits or matching
+    the source. The catalogue row itself is never translated or overwritten.
+    """
+    name: str
+    region: str
+    category: str
+    window_direction: str
+    citation_excerpts: List[str] = Field(default_factory=list)
 
 class KoreanLocation(BaseModel):
     """One venue, from whatever source supplied it.
@@ -81,3 +95,13 @@ class KoreanLocation(BaseModel):
     # must refuse these. Enforced at the API, not left to the UI.
     no_derivatives: bool = False
 
+    # Read-side catalogue metadata added by SQLite. Keeping it on the model is
+    # important because English localisation round-trips rows through this
+    # schema before returning them to the UI.
+    is_new: bool = False
+    first_seen: Optional[str] = None
+
+    # Present only on a localised API response. Stored catalogue records remain
+    # Korean, which preserves source fidelity and keeps filtering deterministic.
+    display_language: str = "ko"
+    original_text: Optional[OriginalLocationText] = None

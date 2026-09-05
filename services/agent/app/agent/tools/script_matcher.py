@@ -18,6 +18,7 @@ from app import catalog
 from app.config import settings
 from app.gemini_models import TEXT_MODELS, try_models
 from app.models.korean_locations import KoreanLocation
+from app.agent.tools.location_localizer import localize_locations
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,16 @@ def _diverse_sample(limit: int = 60) -> List[KoreanLocation]:
     return out
 
 
-def _summarize_for_prompt(locations: List[KoreanLocation]) -> str:
+def _summarize_for_prompt(locations: List[KoreanLocation], language: str = "ko") -> str:
+    if language == "en":
+        return "\n".join(
+            f"- ID: {l.id} | source name: {l.name[:50]} | source category: {l.category} | "
+            f"source region: {l.region} | "
+            f"{('KRW ' + format(l.price_per_hour, ',') + '/h') if l.price_per_hour else 'price unknown'} | "
+            f"{l.specs.area_sqm} sqm | source window note: {l.specs.window_direction} | "
+            f"source tags: {', '.join(l.tags[:4])}"
+            for l in locations
+        )
     return "\n".join(
         f"- ID: {l.id} | {l.name[:50]} | {l.category} | {l.region} | "
         f"{('₩' + format(l.price_per_hour, ',') + '/h') if l.price_per_hour else '가격미상'} | "
@@ -269,7 +279,7 @@ Analyse the screenplay scene by scene, identify spatial and lighting requirement
 Every recommended_location_id must exist in the supplied list. Never invent a location.
 
 [REAL BOOKABLE LOCATIONS]
-{_summarize_for_prompt(sample)}
+{_summarize_for_prompt(sample, "en")}
 
 [SCREENPLAY]
 {script_text[:4000]}
@@ -366,6 +376,14 @@ JSON으로만 응답:
                     ))
 
                 if parsed_scenes:
+                    if language == "en":
+                        for scene in parsed_scenes:
+                            translated = await localize_locations(
+                                [x for x in (scene.primary_location, scene.alternative_location) if x],
+                                "en",
+                            )
+                            scene.primary_location = translated[0]
+                            scene.alternative_location = translated[1] if len(translated) > 1 else None
                     return ScriptAnalysisResponse(
                         project_title=data.get("project_title", project_title),
                         total_scenes_detected=len(parsed_scenes),
@@ -402,6 +420,14 @@ JSON으로만 응답:
         "권역별로 회차를 묶어 이동을 줄이고, 자연광이 필요한 씬은 각 매물 상세의 채광 시뮬레이터로 "
         "촬영일 기준 골든아워를 확인한 뒤 콜타임을 정하세요."
     ) if scenes else EMPTY_CATALOG_ADVICE
+
+    if language == "en":
+        for scene in scenes:
+            translated = await localize_locations(
+                [x for x in (scene.primary_location, scene.alternative_location) if x], "en"
+            )
+            scene.primary_location = translated[0]
+            scene.alternative_location = translated[1] if len(translated) > 1 else None
 
     return ScriptAnalysisResponse(
         project_title=project_title,
@@ -442,19 +468,26 @@ async def chat_with_script_ai(req: ChatRequest) -> ChatResponse:
     # The whole thread, so follow-ups ("그럼 더 싼 곳은?") resolve against what
     # was already recommended.
     history = "\n".join(
-        f"{'사용자' if m.role == 'user' else 'AI'}: {m.content[:600]}"
+        f"{('User' if m.role == 'user' else 'Assistant') if req.language == 'en' else ('사용자' if m.role == 'user' else 'AI')}: {m.content[:600]}"
         for m in req.messages[-12:]
     )
 
     excerpt_block = ""
     if req.script_excerpt:
         excerpt_block = (
+            "\n[SCREENPLAY EXCERPT SELECTED BY THE USER]\n"
+            f"\"\"\"{req.script_excerpt[:1500]}\"\"\"\n"
+            "First identify its spatial, lighting and movement needs, then recommend matching locations.\n"
+        ) if req.language == "en" else (
             "\n[사용자가 자기 각본에서 직접 지목한 대목]\n"
             f"\"\"\"{req.script_excerpt[:1500]}\"\"\"\n"
             "이 대목이 요구하는 공간·조명·동선 조건을 먼저 읽어낸 뒤, 그 조건에 맞는 장소를 고르세요.\n"
         )
 
-    scene_block = f"\n[직전 각본 분석 결과]\n{req.current_scene_context}\n" if req.current_scene_context else ""
+    scene_block = (
+        f"\n[PREVIOUS SCREENPLAY ANALYSIS]\n{req.current_scene_context}\n"
+        if req.language == "en" else f"\n[직전 각본 분석 결과]\n{req.current_scene_context}\n"
+    ) if req.current_scene_context else ""
 
     if req.language == "en":
         prompt = f"""You are StageSight, an AI location supervisor for film productions in South Korea.
@@ -464,9 +497,11 @@ Recommend locations only from the real bookable catalogue below while conversing
 - Every recommended_location_id must exist in the supplied list. Never invent a location.
 - If nothing matches, say so and suggest which constraints could be relaxed.
 - Use prices, area and window orientation only when present in the catalogue; state when they are unknown.
+- The reply and filter summary must contain English only: translate or romanise every Korean venue name, region, category and specification you mention. Never output Hangul.
+- Express area in square metres, not pyeong.
 
 [REAL BOOKABLE LOCATIONS]
-{_summarize_for_prompt(sample)}
+{_summarize_for_prompt(sample, "en")}
 {scene_block}{excerpt_block}
 [CONVERSATION]
 {history}
@@ -521,6 +556,30 @@ Answer the user's latest question in English. Respond only with JSON:
 
     data = json.loads(response.text.strip())
 
+    # The evidence is Korean. Models occasionally copy a source brand name or
+    # unit into an otherwise English answer, so repair that language boundary
+    # once before the response reaches the English UI.
+    if req.language == "en":
+        reply_text = str(data.get("reply") or "")
+        filter_text = str(data.get("filter_summary") or "")
+        if re.search(r"[가-힣]", reply_text + filter_text):
+            repair_prompt = f"""Translate every Korean word in this JSON into natural English or romanised English.
+Preserve IDs, prices and factual meaning exactly. Convert pyeong areas to square metres using 1 pyeong = 3.3058 sqm. Return only JSON with the same two keys and no Hangul.
+{json.dumps({"reply": reply_text, "filter_summary": filter_text}, ensure_ascii=False)}"""
+            repaired = await asyncio.to_thread(
+                lambda: try_models(
+                    TEXT_MODELS,
+                    lambda model: client.models.generate_content(
+                        model=model,
+                        contents=repair_prompt,
+                        config=types.GenerateContentConfig(response_mime_type="application/json"),
+                    ),
+                )
+            )
+            repaired_data = json.loads(repaired.text or "{}")
+            data["reply"] = repaired_data.get("reply", reply_text)
+            data["filter_summary"] = repaired_data.get("filter_summary", filter_text)
+
     # Ids are validated, not trusted. A hallucinated venue is the one failure
     # mode this product cannot ship.
     matched: List[KoreanLocation] = []
@@ -528,6 +587,9 @@ Answer the user's latest question in English. Respond only with JSON:
         loc = catalog.by_id(lid)
         if loc and all(loc.id != m.id for m in matched):
             matched.append(loc)
+
+    if req.language == "en":
+        matched = await localize_locations(matched, "en")
 
     reply = (data.get("reply") or "").strip()
     if not reply:

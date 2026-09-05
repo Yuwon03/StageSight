@@ -70,7 +70,9 @@ export const LocationCard: React.FC<LocationCardProps> = ({ location, locale = "
           )}
           <div className="flex items-center space-x-1">
             <Camera className="w-3.5 h-3.5" />
-            <span>{location.specs.window_direction.split(" ")[0]}</span>
+            <span className="line-clamp-1">
+              {locale === "en" ? location.specs.window_direction : location.specs.window_direction.split(" ")[0]}
+            </span>
           </div>
         </div>
 

@@ -66,6 +66,15 @@ export interface KoreanLocation {
   /** The photo may be displayed with attribution but not altered, so the AI
    *  frame simulator is unavailable for this listing. */
   no_derivatives?: boolean;
+  /** English responses retain exact Korean search values for production tools. */
+  display_language?: "ko" | "en";
+  original_text?: {
+    name: string;
+    region: string;
+    category: string;
+    window_direction: string;
+    citation_excerpts: string[];
+  } | null;
 }
 
 export interface SceneMatchResult {

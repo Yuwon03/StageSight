@@ -121,6 +121,7 @@ export function StageSightHome({ locale = "ko" }: { locale?: Locale }) {
           listing_kind: includeReference ? "전체" : "bookable",
           skip: currentSkip,
           limit: LIMIT,
+          language: locale,
         });
 
         skipRef.current = currentSkip + items.length;
@@ -140,13 +141,13 @@ export function StageSightHome({ locale = "ko" }: { locale?: Locale }) {
         setIsLoadingMore(false);
       }
     },
-    [selectedCategory, selectedRegion, maxPrice, windowDir, minParking, includeReference, isLoadingMore]
+    [selectedCategory, selectedRegion, maxPrice, windowDir, minParking, includeReference, isLoadingMore, locale]
   );
 
   useEffect(() => {
     loadLocations(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, selectedRegion, maxPrice, windowDir, minParking, includeReference]);
+  }, [selectedCategory, selectedRegion, maxPrice, windowDir, minParking, includeReference, locale]);
 
   // Delta sync: on focus and on a slow timer, ask only for what changed since the
   // version we hold and patch it in. No full refetch, no scroll position lost.
@@ -156,7 +157,7 @@ export function StageSightHome({ locale = "ko" }: { locale?: Locale }) {
     const applyDelta = async () => {
       if (cancelled || document.hidden || versionRef.current === 0) return;
       try {
-        const d = await syncCatalog(versionRef.current);
+        const d = await syncCatalog(versionRef.current, locale);
         if (cancelled) return;
         versionRef.current = d.version;
         setTotalCount(d.catalog_size);
@@ -194,7 +195,7 @@ export function StageSightHome({ locale = "ko" }: { locale?: Locale }) {
       window.removeEventListener("focus", applyDelta);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [locale]);
 
   // Infinite scroll: load next page when the sentinel scrolls into view.
   // Re-attach whenever the sentinel can (re)mount — it doesn't exist during

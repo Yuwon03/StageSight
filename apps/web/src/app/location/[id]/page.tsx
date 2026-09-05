@@ -232,21 +232,24 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     if (locationId) {
-      fetchLocationById(locationId).then(setLocation).catch(console.error);
+      fetchLocationById(locationId, locale).then(setLocation).catch(console.error);
     }
-  }, [locationId]);
+  }, [locationId, locale]);
 
   const runPermitResearch = async () => {
     if (!location) return;
     setPermitsLoading(true);
     setPermitsError(null);
     try {
-      const addr = location.citations?.[0]?.excerpt?.split("·")[0]?.trim() || location.region;
+      const sourceExcerpt = location.original_text?.citation_excerpts?.[0];
+      const addr = sourceExcerpt?.split("·")[0]?.trim()
+        || location.citations?.[0]?.excerpt?.split("·")[0]?.trim()
+        || location.region;
       setPermits(
         await researchFilmingPermits(
-          location.name.replace(/\[.*?\]/, "").trim(),
+          (location.original_text?.name || location.name).replace(/\[.*?\]/, "").trim(),
           addr,
-          location.region,
+          location.original_text?.region || location.region,
           undefined,
           locale
         )
@@ -265,11 +268,15 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
   // ---- Solar derivations (real astronomy, per region + date) ----
   const solar = useMemo(() => {
     if (!location) return null;
-    const { lat, lon } = coordsForRegion(location.region);
+    const regional = coordsForRegion(location.original_text?.region || location.region);
+    const lat = location.latitude ?? regional.lat;
+    const lon = location.longitude ?? regional.lon;
     const times = getSunTimes(dateStr, lat, lon);
     const pos = getSunPosition(dateStr, timeOfDay, lat, lon);
     const phase = getLightPhase(timeOfDay, times);
-    const windowAz = parseWindowAzimuth(location.specs.window_direction);
+    const windowAz = parseWindowAzimuth(
+      location.original_text?.window_direction || location.specs.window_direction
+    );
     const incidence = windowIncidence(pos, windowAz);
     const sunWindow = directSunWindow(dateStr, lat, lon, windowAz, times);
     const description = describeLight(timeOfDay, times, pos, windowAz, locale);
@@ -1177,6 +1184,11 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                 <ShieldCheck className="w-5 h-5 text-indigo-600" />
                 <span>{t("수집 출처 리포트", "Collected source report")}</span>
               </div>
+              {en && location.display_language === "en" && (
+                <p className="text-xs font-semibold text-indigo-700">
+                  English translation of Korean source text. Open the source link for the original wording.
+                </p>
+              )}
               <p className="text-sm text-slate-700 leading-relaxed font-medium">
                 {location.permit_summary}
               </p>

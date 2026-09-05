@@ -53,6 +53,7 @@ export interface LocationQuery {
   provider?: string;
   /** Defaults to "bookable" server-side; pass "전체" to include reference records. */
   listing_kind?: string;
+  language?: "ko" | "en";
 }
 
 function toParams(params?: LocationQuery): string {
@@ -64,6 +65,7 @@ function toParams(params?: LocationQuery): string {
   if (params?.min_parking) sp.set("min_parking", String(params.min_parking));
   if (params?.skip !== undefined) sp.set("skip", String(params.skip));
   if (params?.limit !== undefined) sp.set("limit", String(params.limit));
+  if (params?.language) sp.set("language", params.language);
   return sp.toString();
 }
 
@@ -86,8 +88,8 @@ export interface CatalogDelta {
 }
 
 /** Asks the server only for what changed above `since` — no full refetch. */
-export async function syncCatalog(since: number): Promise<CatalogDelta> {
-  const { data } = await getJSON<CatalogDelta>(`/api/locations/sync?since=${since}`);
+export async function syncCatalog(since: number, language: "ko" | "en" = "ko"): Promise<CatalogDelta> {
+  const { data } = await getJSON<CatalogDelta>(`/api/locations/sync?since=${since}&language=${language}`);
   return data;
 }
 
@@ -140,8 +142,8 @@ export async function uploadScriptFile(file: File): Promise<UploadedScript> {
 }
 
 
-export async function fetchLocationById(id: string): Promise<KoreanLocation> {
-  const { data } = await getJSON<KoreanLocation>(`/api/locations/${id}`);
+export async function fetchLocationById(id: string, language: "ko" | "en" = "ko"): Promise<KoreanLocation> {
+  const { data } = await getJSON<KoreanLocation>(`/api/locations/${id}?language=${language}`);
   return data;
 }
 

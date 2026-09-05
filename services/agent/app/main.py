@@ -22,6 +22,7 @@ from app.agent.tools.script_matcher import (
     ChatResponse,
     DEFAULT_KOREAN_SCRIPT
 )
+from app.agent.tools.location_localizer import localize_locations
 
 app = FastAPI(
     title="StageSight - Korean Filming Locations & Spatial Production Intelligence",
@@ -75,7 +76,7 @@ store.init_db()
 
 
 @app.get("/api/locations")
-def get_locations(
+async def get_locations(
     response: Response,
     category: Optional[str] = Query(None, description="모던 스튜디오 / 전통 한옥 / 자연·야외 / 빈티지·창고 / 럭셔리 하우스 / 카페·갤러리"),
     region: Optional[str] = Query(None, description="서울 / 경기 / 인천 / 부산 / 제주 …"),
@@ -90,6 +91,7 @@ def get_locations(
     ),
     skip: int = Query(0),
     limit: int = Query(60),
+    language: str = Query("ko", description="ko / en display language"),
 ):
     """
     Real listings, newest first. Each carries `is_new` (first seen within 72h) so
@@ -106,17 +108,26 @@ def get_locations(
     response.headers["X-Total-Count"] = str(total)
     response.headers["X-Catalog-Version"] = str(store.current_rev())
     response.headers["Access-Control-Expose-Headers"] = "X-Total-Count, X-Catalog-Version"
-    return items
+    models = [KoreanLocation(**item) for item in items]
+    return await localize_locations(models, "en" if language == "en" else "ko")
 
 
 @app.get("/api/locations/sync")
-def sync_locations(since: int = Query(0, description="Last catalog version the client holds")):
+async def sync_locations(
+    since: int = Query(0, description="Last catalog version the client holds"),
+    language: str = Query("ko", description="ko / en display language"),
+):
     """
     Delta sync. Returns only what changed above `since`, so a client that already
     has the catalog refreshes in one small response instead of refetching it all.
     `truncated` means there is more — call again with the returned version.
     """
-    return store.changes_since(max(0, since))
+    delta = store.changes_since(max(0, since))
+    models = [KoreanLocation(**item) for item in delta["upserted"]]
+    delta["upserted"] = await localize_locations(
+        models, "en" if language == "en" else "ko"
+    )
+    return delta
 
 
 @app.get("/api/locations/stats")
@@ -169,11 +180,17 @@ def list_providers():
 
 
 @app.get("/api/locations/{location_id}")
-def get_location_by_id(location_id: str):
+async def get_location_by_id(
+    location_id: str,
+    language: str = Query("ko", description="ko / en display language"),
+):
     loc = store.by_id(location_id)
     if loc is None:
         raise HTTPException(status_code=404, detail="Location not found")
-    return loc
+    translated = await localize_locations(
+        [KoreanLocation(**loc)], "en" if language == "en" else "ko", detail=True
+    )
+    return translated[0]
 
 
 class IngestPayload(BaseModel):
