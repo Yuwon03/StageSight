@@ -29,4 +29,4 @@ The current catalogue focuses on South Korea. AI images are illustrative and do 
 
 ## Demo focus
 
-In three minutes: open the English workspace, choose a real venue, open its source listing, create a lighting preview, then run Parallel permit research and inspect the cited sources. Use the Korean workspace to show screenplay matching and chat, with English narration or subtitles.
+In three minutes: open the English interface, choose a real venue, open its source listing, create a lighting preview, then run Parallel permit research and inspect the cited sources. Continue to screenplay matching and chat in the same English interface.

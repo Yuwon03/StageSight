@@ -18,6 +18,7 @@ interface OrbitAnglePickerProps {
   onBatchModeChange: (on: boolean) => void;
   batchCount: number;
   disabled?: boolean;
+  locale?: "ko" | "en";
 }
 
 const R = 108; // wireframe sphere radius in SVG units
@@ -86,6 +87,7 @@ export const OrbitAnglePicker: React.FC<OrbitAnglePickerProps> = ({
   onBatchModeChange,
   batchCount,
   disabled = false,
+  locale = "ko",
 }) => {
   const [dragging, setDragging] = useState(false);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -171,7 +173,7 @@ export const OrbitAnglePicker: React.FC<OrbitAnglePickerProps> = ({
   return (
     <div className="rounded-2xl bg-white/[0.04] border border-white/10 p-3">
       <p className="text-center text-[11px] font-semibold text-white/55 leading-snug mb-1">
-        드래그해서 카메라 앵글을 바꿔보세요
+        {locale === "en" ? "Drag to change the camera angle" : "드래그해서 카메라 앵글을 바꿔보세요"}
       </p>
 
       <div className="relative flex items-center justify-center">
@@ -179,7 +181,7 @@ export const OrbitAnglePicker: React.FC<OrbitAnglePickerProps> = ({
         <button
           onClick={() => nudge(-45)}
           disabled={disabled}
-          aria-label="왼쪽으로 회전"
+          aria-label={locale === "en" ? "Rotate left" : "왼쪽으로 회전"}
           className="absolute left-0 z-10 p-1.5 text-white/40 hover:text-white transition-colors disabled:opacity-25"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
@@ -187,7 +189,7 @@ export const OrbitAnglePicker: React.FC<OrbitAnglePickerProps> = ({
         <button
           onClick={() => nudge(45)}
           disabled={disabled}
-          aria-label="오른쪽으로 회전"
+          aria-label={locale === "en" ? "Rotate right" : "오른쪽으로 회전"}
           className="absolute right-0 z-10 p-1.5 text-white/40 hover:text-white transition-colors disabled:opacity-25"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
@@ -277,8 +279,8 @@ export const OrbitAnglePicker: React.FC<OrbitAnglePickerProps> = ({
           )}
 
           {/* Pole hints */}
-          <text x={CX} y={CY - R - 8} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="9" fontFamily="var(--font-mono), monospace">버드아이</text>
-          <text x={CX} y={CY + R + 15} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="9" fontFamily="var(--font-mono), monospace">웜즈아이</text>
+          <text x={CX} y={CY - R - 8} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="9" fontFamily="var(--font-mono), monospace">{locale === "en" ? "BIRD'S EYE" : "버드아이"}</text>
+          <text x={CX} y={CY + R + 15} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize="9" fontFamily="var(--font-mono), monospace">{locale === "en" ? "WORM'S EYE" : "웜즈아이"}</text>
         </svg>
       </div>
 
@@ -291,7 +293,7 @@ export const OrbitAnglePicker: React.FC<OrbitAnglePickerProps> = ({
           className="w-4 h-4 rounded border-white/30 bg-white/10 accent-indigo-500 cursor-pointer"
         />
         <span className="text-xs font-semibold text-white/80">
-          추천 앵글 {batchCount}종 한 번에 생성
+          {locale === "en" ? `Generate ${batchCount} recommended angles` : `추천 앵글 ${batchCount}종 한 번에 생성`}
         </span>
       </label>
     </div>

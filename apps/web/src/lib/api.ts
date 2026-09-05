@@ -180,12 +180,13 @@ export async function getIngestStatus(): Promise<IngestStatus> {
 // ── Script matching & scouting chat ─────────────────────────────────────────
 export async function matchScript(
   scriptText: string,
-  projectTitle = "마지막 일몰"
+  projectTitle = "마지막 일몰",
+  language: "ko" | "en" = "ko"
 ): Promise<ScriptAnalysisResponse> {
   const { data } = await getJSON<ScriptAnalysisResponse>("/api/script/match", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ script_text: scriptText, project_title: projectTitle }),
+    body: JSON.stringify({ script_text: scriptText, project_title: projectTitle, language }),
   });
   return data;
 }
@@ -195,7 +196,8 @@ export async function sendScoutingChatMessage(
   currentSceneContext?: string,
   selectedLocId?: string,
   /** A passage the user highlighted in their own screenplay. */
-  scriptExcerpt?: string
+  scriptExcerpt?: string,
+  language: "ko" | "en" = "ko"
 ): Promise<ChatResponse> {
   const { data } = await getJSON<ChatResponse>("/api/chat", {
     method: "POST",
@@ -205,6 +207,7 @@ export async function sendScoutingChatMessage(
       current_scene_context: currentSceneContext,
       selected_location_id: selectedLocId,
       script_excerpt: scriptExcerpt,
+      language,
     }),
   });
   return data;

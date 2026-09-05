@@ -10,22 +10,24 @@ import {
 } from "lucide-react";
 
 interface CategoryBarProps {
+  locale?: "ko" | "en";
   selectedCategory: string;
   onSelectCategory: (c: string) => void;
 }
 
 export const CategoryBar: React.FC<CategoryBarProps> = ({
+  locale = "ko",
   selectedCategory,
   onSelectCategory,
 }) => {
   const categories = [
-    { name: "전체", icon: Sparkles },
-    { name: "모던 스튜디오", icon: Building2 },
-    { name: "전통 한옥", icon: Castle },
-    { name: "자연/야외", icon: TreePine },
-    { name: "빈티지/창고", icon: Store },
-    { name: "럭셔리 하우스", icon: Home },
-    { name: "카페/갤러리", icon: Coffee },
+    { name: "전체", label: "All", icon: Sparkles },
+    { name: "모던 스튜디오", label: "Modern studios", icon: Building2 },
+    { name: "전통 한옥", label: "Traditional houses", icon: Castle },
+    { name: "자연/야외", label: "Nature / outdoor", icon: TreePine },
+    { name: "빈티지/창고", label: "Vintage / warehouse", icon: Store },
+    { name: "럭셔리 하우스", label: "Luxury houses", icon: Home },
+    { name: "카페/갤러리", label: "Cafés / galleries", icon: Coffee },
   ];
 
   return (
@@ -45,7 +47,7 @@ export const CategoryBar: React.FC<CategoryBarProps> = ({
               selectedCategory === cat.name ? "text-gray-900" : "text-gray-500"
             }`}
           />
-          <span className="text-xs font-semibold">{cat.name}</span>
+          <span className="text-xs font-semibold">{locale === "en" ? cat.label : cat.name}</span>
         </button>
       ))}
     </div>

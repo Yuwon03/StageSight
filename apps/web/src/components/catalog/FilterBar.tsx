@@ -2,6 +2,7 @@ import React from "react";
 import { Search, SlidersHorizontal, Sparkles, RefreshCw } from "lucide-react";
 
 interface FilterBarProps {
+  locale?: "ko" | "en";
   searchQuery: string;
   onSearchChange: (v: string) => void;
   selectedRegion: string;
@@ -18,6 +19,7 @@ interface FilterBarProps {
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
+  locale = "ko",
   searchQuery,
   onSearchChange,
   selectedRegion,
@@ -43,7 +45,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="지역, 공간 유형 검색"
+          placeholder={locale === "en" ? "Search by region or space type" : "지역, 공간 유형 검색"}
           className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all"
         />
       </div>
@@ -60,7 +62,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            {r}
+            {locale === "en" ? ({ "전체": "All", "서울": "Seoul", "경기": "Gyeonggi", "제주": "Jeju" }[r] ?? r) : r}
           </button>
         ))}
       </div>
@@ -75,12 +77,12 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           {isCrawling ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>실제 매물 수집 중...</span>
+              <span>{locale === "en" ? "Collecting real listings..." : "실제 매물 수집 중..."}</span>
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4" />
-              <span>실제 매물 수집</span>
+              <span>{locale === "en" ? "Collect real listings" : "실제 매물 수집"}</span>
             </>
           )}
         </button>
@@ -91,7 +93,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         className="flex items-center space-x-2 px-4 py-3 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:border-gray-400 transition-colors shadow-sm ml-auto"
       >
         <SlidersHorizontal className="w-4 h-4" />
-        <span>필터 초기화</span>
+        <span>{locale === "en" ? "Reset filters" : "필터 초기화"}</span>
       </button>
     </div>
   );

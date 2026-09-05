@@ -11,6 +11,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   ArrowLeft,
   Heart,
@@ -40,8 +41,16 @@ import {
 import { fetchLocationById, BackendUnreachableError } from "@/lib/api";
 import { Camera } from "lucide-react";
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, locale: "ko" | "en" = "ko"): string {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (locale === "en") {
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} minutes ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs} hours ago`;
+    const days = Math.round(hrs / 24);
+    return days < 30 ? `${days} days ago` : new Date(iso).toLocaleDateString("en-US");
+  }
   if (mins < 1) return "방금 전";
   if (mins < 60) return `${mins}분 전`;
   const hrs = Math.round(mins / 60);
@@ -51,6 +60,9 @@ function timeAgo(iso: string): string {
 }
 
 export default function MyPage() {
+  const en = usePathname().startsWith("/en/");
+  const locale = en ? "en" : "ko";
+  const t = (ko: string, english: string) => (en ? english : ko);
   const { profile, saved, conversations } = useUserState();
   const [tab, setTab] = useState<"saved" | "chats" | "renders">("saved");
   const [renders, setRenders] = useState<RenderRecord[]>([]);
@@ -116,18 +128,19 @@ export default function MyPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
 
-  const initial = (profile.displayName || "게").trim().charAt(0);
+  const displayName = en && profile.displayName === "게스트" ? "Guest" : profile.displayName;
+  const initial = (displayName || t("게", "G")).trim().charAt(0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div lang={locale} className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200 px-4 md:px-10 xl:px-20 py-4">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <Link
-            href="/"
+            href={en ? "/en" : "/"}
             className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>탐색으로</span>
+            <span>{t("탐색으로", "Back to explore")}</span>
           </Link>
           <div className="flex items-center gap-2 ml-auto">
             <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center">
@@ -169,38 +182,38 @@ export default function MyPage() {
                     }}
                     className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl"
                   >
-                    저장
+                    {t("저장", "Save")}
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={() => {
-                    setNameDraft(profile.displayName);
+                    setNameDraft(displayName);
                     setEditingName(true);
                   }}
                   className="group flex items-center gap-2 text-left"
                 >
-                  <h1 className="text-2xl font-bold text-gray-900">{profile.displayName}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">{displayName}</h1>
                   <Pencil className="w-4 h-4 text-gray-400 group-hover:text-gray-700 transition-colors" />
                 </button>
               )}
               <p className="text-sm text-gray-500 font-medium mt-1">
-                이 브라우저에 저장된 활동 · {new Date(profile.createdAt).toLocaleDateString("ko-KR")}부터
+                {t("이 브라우저에 저장된 활동", "Activity saved in this browser")} · {new Date(profile.createdAt).toLocaleDateString(en ? "en-US" : "ko-KR")}
               </p>
             </div>
 
             <div className="flex items-center gap-6">
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{saved.length}</div>
-                <div className="text-xs font-semibold text-gray-500 mt-0.5">저장한 공간</div>
+                <div className="text-xs font-semibold text-gray-500 mt-0.5">{t("저장한 공간", "Saved locations")}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{conversations.length}</div>
-                <div className="text-xs font-semibold text-gray-500 mt-0.5">대본 대화</div>
+                <div className="text-xs font-semibold text-gray-500 mt-0.5">{t("대본 대화", "Script conversations")}</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-gray-900">{renders.length}</div>
-                <div className="text-xs font-semibold text-gray-500 mt-0.5">생성한 컷</div>
+                <div className="text-xs font-semibold text-gray-500 mt-0.5">{t("생성한 컷", "Generated frames")}</div>
               </div>
             </div>
           </div>
@@ -209,8 +222,7 @@ export default function MyPage() {
           <div className="mt-6 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-900">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
-              아직 계정 기능이 없어 저장한 공간과 대화는 <b>이 브라우저에만</b> 보관됩니다. 다른 기기에서는
-              보이지 않고, 브라우저 데이터를 지우면 함께 사라집니다.
+              {en ? <>Accounts are not available yet. Saved locations and conversations are stored <b>only in this browser</b>. They will not appear on another device and are removed if browser data is cleared.</> : <>아직 계정 기능이 없어 저장한 공간과 대화는 <b>이 브라우저에만</b> 보관됩니다. 다른 기기에서는 보이지 않고, 브라우저 데이터를 지우면 함께 사라집니다.</>}
             </span>
           </div>
         </section>
@@ -224,7 +236,7 @@ export default function MyPage() {
             }`}
           >
             <Heart className="w-4 h-4" />
-            <span>저장한 공간 ({saved.length})</span>
+            <span>{t("저장한 공간", "Saved locations")} ({saved.length})</span>
           </button>
           <button
             onClick={() => setTab("chats")}
@@ -233,7 +245,7 @@ export default function MyPage() {
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span>대본 대화 ({conversations.length})</span>
+            <span>{t("대본 대화", "Script conversations")} ({conversations.length})</span>
           </button>
           <button
             onClick={() => setTab("renders")}
@@ -242,14 +254,14 @@ export default function MyPage() {
             }`}
           >
             <Camera className="w-4 h-4" />
-            <span>생성한 컷 ({renders.length})</span>
+            <span>{t("생성한 컷", "Generated frames")} ({renders.length})</span>
           </button>
         </div>
 
         {pruned > 0 && (
           <div className="flex items-start gap-2 p-3 bg-gray-100 border border-gray-200 rounded-2xl text-sm text-gray-700 font-medium">
             <Info className="w-4 h-4 mt-0.5 shrink-0" />
-            대관이 종료된 공간의 컷 {pruned}건을 자동으로 정리했습니다.
+            {t(`대관이 종료된 공간의 컷 ${pruned}건을 자동으로 정리했습니다.`, `${pruned} frames from delisted locations were removed automatically.`)}
           </div>
         )}
 
@@ -258,9 +270,9 @@ export default function MyPage() {
           (saved.length === 0 ? (
             <EmptyState
               icon={<Heart className="w-7 h-7 text-gray-400" />}
-              title="아직 저장한 공간이 없어요"
-              body="마음에 드는 공간의 하트를 누르면 여기에 모입니다."
-              cta={{ href: "/", label: "공간 둘러보기" }}
+              title={t("아직 저장한 공간이 없어요", "No saved locations yet")}
+              body={t("마음에 드는 공간의 하트를 누르면 여기에 모입니다.", "Use the heart button to collect locations here.")}
+              cta={{ href: en ? "/en" : "/", label: t("공간 둘러보기", "Browse locations") }}
             />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -269,7 +281,7 @@ export default function MyPage() {
                   key={s.id}
                   className="group relative bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                 >
-                  <Link href={`/location/${s.id}`}>
+                  <Link href={`${en ? "/en" : ""}/location/${s.id}`}>
                     <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
                       {s.image ? (
                         <img
@@ -279,7 +291,7 @@ export default function MyPage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
-                          이미지 없음
+                          {t("이미지 없음", "No image")}
                         </div>
                       )}
                     </div>
@@ -287,14 +299,14 @@ export default function MyPage() {
                       <div className="text-sm font-bold text-gray-900 line-clamp-1">{s.region}</div>
                       <div className="text-sm text-gray-600 line-clamp-1">{s.name}</div>
                       <div className="pt-1 text-sm font-bold text-gray-900">
-                        {s.pricePerHour > 0 ? `₩${s.pricePerHour.toLocaleString()} / 시간` : "가격 문의"}
+                        {s.pricePerHour > 0 ? `₩${s.pricePerHour.toLocaleString()} ${t("/ 시간", "/ hour")}` : t("가격 문의", "Price on request")}
                       </div>
-                      <div className="text-xs text-gray-400 font-medium pt-1">{timeAgo(s.savedAt)} 저장</div>
+                      <div className="text-xs text-gray-400 font-medium pt-1">{en ? `Saved ${timeAgo(s.savedAt, locale)}` : `${timeAgo(s.savedAt)} 저장`}</div>
                     </div>
                   </Link>
                   <button
                     onClick={() => removeSaved(s.id)}
-                    aria-label="저장 취소"
+                    aria-label={t("저장 취소", "Remove from saved")}
                     className="absolute top-2.5 right-2.5 p-2 rounded-full bg-black/35 backdrop-blur-sm hover:bg-black/55 transition-colors"
                   >
                     <Heart className="w-5 h-5 fill-rose-500 text-rose-500" />
@@ -309,9 +321,9 @@ export default function MyPage() {
           (conversations.length === 0 ? (
             <EmptyState
               icon={<MessageSquare className="w-7 h-7 text-gray-400" />}
-              title="아직 대화가 없어요"
-              body="대본을 분석하면 대화가 하나씩 쌓이고, 나중에 이어서 물어볼 수 있어요."
-              cta={{ href: "/?tab=script", label: "대본 AI 매칭 열기" }}
+              title={t("아직 대화가 없어요", "No conversations yet")}
+              body={t("대본을 분석하면 대화가 하나씩 쌓이고, 나중에 이어서 물어볼 수 있어요.", "Analyse a screenplay to save a conversation that you can continue later.")}
+              cta={{ href: `${en ? "/en" : "/"}?tab=script`, label: t("대본 AI 매칭 열기", "Open script AI matching") }}
             />
           ) : (
             <div className="space-y-3">
@@ -326,7 +338,7 @@ export default function MyPage() {
                       <MessageSquare className="w-5 h-5 text-indigo-600" />
                     </div>
                     <Link href={`/?tab=script&chat=${c.id}`} className="flex-1 min-w-0">
-                      <div className="font-bold text-gray-900 line-clamp-1">{c.title}</div>
+                      <div className="font-bold text-gray-900 line-clamp-1">{en && c.title === "새 대화" ? "New conversation" : c.title}</div>
                       {last && (
                         <div className="text-sm text-gray-500 line-clamp-2 mt-1 leading-relaxed">
                           {last.content}
@@ -337,13 +349,13 @@ export default function MyPage() {
                           <Clock className="w-3.5 h-3.5" />
                           {timeAgo(c.updatedAt)}
                         </span>
-                        <span>{c.messages.length}개 메시지</span>
-                        {c.analysisCount > 0 && <span>분석 {c.analysisCount}회</span>}
+                        <span>{t(`${c.messages.length}개 메시지`, `${c.messages.length} messages`)}</span>
+                        {c.analysisCount > 0 && <span>{t(`분석 ${c.analysisCount}회`, `${c.analysisCount} analyses`)}</span>}
                       </div>
                     </Link>
                     <button
                       onClick={() => deleteConversation(c.id)}
-                      aria-label="대화 삭제"
+                      aria-label={t("대화 삭제", "Delete conversation")}
                       className="p-2 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -362,14 +374,14 @@ export default function MyPage() {
         {tab === "renders" &&
           (pruning && renders.length === 0 ? (
             <div className="bg-white border border-gray-200 rounded-3xl p-12 text-center text-sm font-semibold text-gray-400">
-              불러오는 중…
+              {t("불러오는 중…", "Loading...")}
             </div>
           ) : renders.length === 0 ? (
             <EmptyState
               icon={<Camera className="w-7 h-7 text-gray-400" />}
-              title="아직 생성한 컷이 없어요"
-              body="공간 상세 페이지의 카메라·조명 시뮬레이터에서 앵글과 시간대를 바꿔 생성하면 여기에 남습니다."
-              cta={{ href: "/", label: "공간 둘러보기" }}
+              title={t("아직 생성한 컷이 없어요", "No generated frames yet")}
+              body={t("공간 상세 페이지의 카메라·조명 시뮬레이터에서 앵글과 시간대를 바꿔 생성하면 여기에 남습니다.", "Frames generated with the camera and lighting simulator are saved here.")}
+              cta={{ href: en ? "/en" : "/", label: t("공간 둘러보기", "Browse locations") }}
             />
           ) : (
             <div className="space-y-4">
@@ -387,14 +399,14 @@ export default function MyPage() {
                           {g.locationName.replace(/\[.*?\]/, "").trim()}
                         </Link>
                         <div className="text-xs text-gray-500 font-medium">
-                          {g.region} · 컷 {g.items.length}장 · 최근 {timeAgo(g.items[0].createdAt)}
+                          {g.region} · {t(`컷 ${g.items.length}장`, `${g.items.length} frames`)} · {t("최근", "latest")} {timeAgo(g.items[0].createdAt, locale)}
                         </div>
                       </div>
                       <button
                         onClick={() => setExpanded((e) => ({ ...e, [g.locationId]: !open }))}
                         className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors shrink-0"
                         aria-expanded={open}
-                        aria-label={open ? "접기" : "펼치기"}
+                        aria-label={open ? t("접기", "Collapse") : t("펼치기", "Expand")}
                       >
                         <ChevronDown className={`w-4 h-4 transition-transform ${open ? "" : "-rotate-90"}`} />
                       </button>
@@ -420,12 +432,12 @@ export default function MyPage() {
                               {/* Measured server-side, not guessed. Saying so keeps a
                                   near-copy from being filed as a new angle. */}
                               {r.cameraMoved === false && (
-                                <div className="text-[10px] font-bold text-amber-700">앵글 미반영</div>
+                                <div className="text-[10px] font-bold text-amber-700">{t("앵글 미반영", "Angle not achieved")}</div>
                               )}
                             </div>
                             <button
                               onClick={() => void deleteRender(r.id)}
-                              aria-label="컷 삭제"
+                              aria-label={t("컷 삭제", "Delete frame")}
                               className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/45 backdrop-blur-sm hover:bg-black/70 text-white transition-all opacity-0 group-hover:opacity-100"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -444,11 +456,11 @@ export default function MyPage() {
           <div className="pt-4 border-t border-gray-200">
             <button
               onClick={() => {
-                if (confirm("저장한 공간과 대화를 모두 삭제할까요? 되돌릴 수 없습니다.")) clearAll();
+                if (confirm(t("저장한 공간과 대화를 모두 삭제할까요? 되돌릴 수 없습니다.", "Delete all saved locations and conversations? This cannot be undone."))) clearAll();
               }}
               className="text-sm font-semibold text-gray-500 hover:text-rose-600 transition-colors"
             >
-              이 브라우저의 활동 기록 전체 삭제
+              {t("이 브라우저의 활동 기록 전체 삭제", "Delete all activity from this browser")}
             </button>
           </div>
         )}

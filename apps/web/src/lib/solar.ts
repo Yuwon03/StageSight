@@ -62,9 +62,11 @@ export function parseWindowAzimuth(windowDirection: string): number | null {
   return 180;
 }
 
-export function windowDirectionLabel(azimuth: number | null): string {
-  if (azimuth === null) return "암막 (자연광 없음)";
-  const names = ["북향", "북동향", "동향", "남동향", "남향", "남서향", "서향", "북서향"];
+export function windowDirectionLabel(azimuth: number | null, locale: "ko" | "en" = "ko"): string {
+  if (azimuth === null) return locale === "en" ? "blackout (no natural light)" : "암막 (자연광 없음)";
+  const names = locale === "en"
+    ? ["north-facing", "northeast-facing", "east-facing", "southeast-facing", "south-facing", "southwest-facing", "west-facing", "northwest-facing"]
+    : ["북향", "북동향", "동향", "남동향", "남향", "남서향", "서향", "북서향"];
   return names[Math.round((((azimuth % 360) + 360) % 360) / 45) % 8];
 }
 
@@ -210,11 +212,32 @@ export function describeLight(
   hour: number,
   times: SunTimes,
   pos: SunPosition,
-  windowAzimuth: number | null
+  windowAzimuth: number | null,
+  locale: "ko" | "en" = "ko"
 ): string {
   const phase = getLightPhase(hour, times);
-  const dirLabel = windowDirectionLabel(windowAzimuth);
+  const dirLabel = windowDirectionLabel(windowAzimuth, locale);
   const inc = windowIncidence(pos, windowAzimuth);
+
+  if (locale === "en") {
+    if (windowAzimuth === null) return "Blackout studio — lighting can be controlled regardless of the time of day.";
+    switch (phase) {
+      case "night": return `Full night after sunset (${fmt(times.sunset)}). Artificial lighting is required.`;
+      case "blue_hour": return "Blue hour — a brief 10–20 minute window of deep blue light outside.";
+      case "golden_hour": return inc > 0.3
+        ? `Golden hour — low direct sunlight enters deeply through the ${dirLabel} window, ideal for backlight or rim light.`
+        : `Golden hour, but the sun is opposite the ${dirLabel} window, leaving soft indirect light inside.`;
+      case "morning": return inc > 0.3
+        ? `Morning — clear direct light enters through the ${dirLabel} window.`
+        : `Morning — the ${dirLabel} window receives soft, even indirect light.`;
+      case "midday": return inc > 0.3
+        ? `Midday — the high sun (${Math.round(pos.altitudeDeg)}°) creates short, strong light near the ${dirLabel} window.`
+        : "Midday — the room is bright but evenly lit without direct sunlight.";
+      case "afternoon": return inc > 0.3
+        ? `Afternoon — warming direct light reaches deeper through the ${dirLabel} window.`
+        : `Afternoon — the ${dirLabel} window still receives primarily indirect light.`;
+    }
+  }
 
   if (windowAzimuth === null) {
     return "암막 스튜디오 — 시간대와 무관하게 조명을 100% 자유롭게 제어할 수 있어요.";
@@ -249,10 +272,23 @@ export function bookingAdvisory(
   bookEnd: number,
   times: SunTimes,
   sunWindow: { start: number; end: number } | null,
-  seasonLabel: string
+  seasonLabel: string,
+  locale: "ko" | "en" = "ko"
 ): { tone: "good" | "warn" | "info"; text: string } {
   const goldenS = times.goldenEveningStart;
   const goldenE = times.sunset;
+
+  if (locale === "en") {
+    if (bookStart >= times.sunset) return { tone: "warn", text: `${seasonLabel} sunset is at ${fmt(times.sunset)}. The booking is entirely after sunset, so artificial lighting is required.` };
+    if (bookEnd > times.sunset && bookStart < times.sunset) {
+      const naturalH = Math.max(0, times.sunset - bookStart);
+      return { tone: "warn", text: `Sunset is at ${fmt(times.sunset)}. Natural light is available for only the first ${naturalH.toFixed(1)} hours.` };
+    }
+    if (bookStart <= goldenE && bookEnd >= goldenS) return { tone: "good", text: `The booking includes golden hour (${fmt(goldenS)}–${fmt(goldenE)}), when the space's natural light is at its best.` };
+    if (sunWindow && bookStart <= sunWindow.end && bookEnd >= sunWindow.start) return { tone: "good", text: `Direct sunlight enters through the window from ${fmt(Math.max(bookStart, sunWindow.start))} to ${fmt(Math.min(bookEnd, sunWindow.end))}.` };
+    if (sunWindow) return { tone: "info", text: `Direct sunlight reaches the window from ${fmt(sunWindow.start)} to ${fmt(sunWindow.end)}. The selected booking window has mostly soft indirect light.` };
+    return { tone: "info", text: `The booking has mostly diffused indirect light. Golden hour is ${fmt(goldenS)}–${fmt(goldenE)}.` };
+  }
 
   if (bookStart >= times.sunset) {
     return {

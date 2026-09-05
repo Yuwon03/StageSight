@@ -4,7 +4,7 @@ Later update: the English workspace and permit research are deployed. The audite
 
 ## Repository inventory
 
-- `apps/web/src/app`: catalogue `/`, venue simulator `/location/[id]`, browser-local activity `/me`, and the newly added English scouting workspace `/en`.
+- `apps/web/src/app`: matching Korean and English routes for the catalogue, venue simulator, screenplay matching and browser-local activity.
 - `apps/web/src/components`: catalogue filters/cards, screenplay matcher, orbit picker, favourites.
 - `apps/web/src/lib`: API client, solar calculations, local user/conversation/render persistence.
 - `services/agent/app`: FastAPI routes, catalogue/store, upload and image handling, Gemini and Parallel tools, geometry/solar workflow, tests.
@@ -33,11 +33,11 @@ Provide a hosted URL, public GitHub/GitLab/Bitbucket repository, detectable open
 4. `parallel_search.py` imports and calls Parallel Search. A live deployed request returned sourced English results; demonstrate this same path in the video.
 5. The project uses a custom Python orchestrator and the Google Gen AI SDK. Public descriptions no longer claim an ADK or Vertex AI runtime.
 6. The current account experience is localStorage, not authenticated cloud accounts. Registration is not needed for the guest scouting workflow. Prioritize reliable browsing, source attribution, AI results, partner evidence, error states, and an English demo before building authentication.
-7. `/en` adds English catalogue pagination, category labels, venue selection, source link, fixed-viewpoint lighting preview, comparison and download, plus no-derivative enforcement. Korean source names remain intact. Screenplay matching and personal activity are not yet localized. This is a scoped English workspace, not full localization.
+7. `/en` now reuses the Korean product UI rather than presenting a separate simplified page. Catalogue browsing, screenplay matching, location details, camera and lighting controls, permit research and personal activity retain the same layout and behavior with English interface copy. Original Korean listing names remain intact.
 
 ## Suggested judge walkthrough
 
-Open `/en`, select a category and real venue, inspect the original listing, select a lighting scenario, generate and compare the preview. Explain that the output is an illustration, not a measured lighting/geometry guarantee. Separately demonstrate the existing Parallel permit-research flow with citations and a successful runtime call. Show the screenplay flow with English narration/subtitles until its UI and generated text are localized.
+Open `/en`, select a category and real venue, inspect the original listing, adjust the camera and lighting controls, and generate and compare the preview. Explain that the output is an illustration, not a measured lighting/geometry guarantee. Demonstrate Parallel permit research with citations, then open screenplay matching and refine a recommendation through chat.
 
 ## Publication status
 

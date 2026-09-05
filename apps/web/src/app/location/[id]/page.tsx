@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, use } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { KoreanLocation } from "@/types";
 import {
   fetchLocationById,
@@ -55,7 +55,18 @@ import {
 const zoomToFocal = (zoom: number) =>
   Math.round(16 * Math.pow(85 / 16, (Math.max(1, Math.min(20, zoom)) - 1) / 19));
 
-const tiltLabel = (t: number) => {
+const tiltLabel = (t: number, en = false) => {
+  if (en) {
+    if (t >= 78) return "Bird's-eye view";
+    if (t >= 50) return "Steep high angle";
+    if (t >= 22) return "High angle";
+    if (t >= 8) return "Slightly elevated";
+    if (t > -8) return "Eye level";
+    if (t > -22) return "Slightly low angle";
+    if (t > -50) return "Low angle";
+    if (t > -78) return "Very low angle";
+    return "Worm's-eye view";
+  }
   if (t >= 78) return "버드 아이 뷰";
   if (t >= 50) return "급경사 하이 앵글";
   if (t >= 22) return "하이 앵글";
@@ -67,7 +78,14 @@ const tiltLabel = (t: number) => {
   return "웜즈 아이 뷰";
 };
 
-const tiltHint = (t: number) => {
+const tiltHint = (t: number, en = false) => {
+  if (en) {
+    if (t >= 78) return "A vertical overhead shot that reveals the full layout like a floor plan.";
+    if (t >= 22) return "A view from above head height that makes furniture placement and movement paths easy to read.";
+    if (t > -8) return "Standing eye level (about 1.6 m), offering the most natural and stable view of the space.";
+    if (t > -50) return "A knee-height view looking upward, revealing the ceiling and making the space feel taller.";
+    return "An extreme floor-level view that emphasises ceiling height and vertical scale.";
+  }
   if (t >= 78) return "천장에서 수직으로 내려다보는 항공 샷 — 평면도처럼 전체 레이아웃이 보입니다.";
   if (t >= 22) return "머리 위 높이에서 내려다보는 앵글 — 가구 배치와 동선을 한눈에 파악할 수 있어요.";
   if (t > -8) return "서 있는 사람 눈높이(약 1.6m) — 가장 안정적이고 실제 체감에 가까운 구도입니다.";
@@ -75,9 +93,16 @@ const tiltHint = (t: number) => {
   return "바닥에 붙어 올려다보는 초근접 앵글 — 천장고와 수직감이 극대화됩니다.";
 };
 
-const rotationLabel = (r: number) => {
+const rotationLabel = (r: number, en = false) => {
   const v = ((r % 360) + 360) % 360;
-  if (v < 12 || v >= 348) return "원본 시점";
+  if (v < 12 || v >= 348) return en ? "Original viewpoint" : "원본 시점";
+  if (en) {
+    const side = v < 180 ? "Right" : "Left";
+    const amt = v < 180 ? v : 360 - v;
+    if (amt < 55) return `${side} three-quarter view`;
+    if (amt < 125) return `${side} side view`;
+    return "Reverse viewpoint";
+  }
   const side = v < 180 ? "오른쪽" : "왼쪽";
   const amt = v < 180 ? v : 360 - v;
   if (amt < 55) return `${side} 3/4 시점`;
@@ -114,6 +139,21 @@ const BEST_ANGLES: Array<{ rotation: number; tilt: number; zoom: number; name: s
   { rotation: 20, tilt: 0, zoom: 15, name: "디테일 망원" },
 ];
 
+const BEST_ANGLE_NAMES_EN: Record<string, string> = {
+  "정면 와이드": "Front wide",
+  "평면도 뷰": "Floor-plan view",
+  "하이 앵글 전경": "High-angle wide",
+  "로우 앵글 천장고": "Low angle / ceiling",
+  "우측 3/4": "Right three-quarter",
+  "좌측 3/4": "Left three-quarter",
+  "우측 측면": "Right side",
+  "좌측 측면": "Left side",
+  "반대편 리버스": "Reverse viewpoint",
+  "코너 하이 앵글": "Corner high angle",
+  "웜즈 아이": "Worm's-eye view",
+  "디테일 망원": "Telephoto detail",
+};
+
 const PHASE_COLORS: Record<LightPhase, string> = {
   night: "#334155",
   blue_hour: "#6366f1",
@@ -131,16 +171,19 @@ function todayStr(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function seasonLabelFor(dateStr: string): string {
+function seasonLabelFor(dateStr: string, en = false): string {
   const m = parseInt(dateStr.split("-")[1] || "6", 10);
-  if (m >= 6 && m <= 8) return "여름";
-  if (m === 12 || m <= 2) return "겨울";
-  if (m >= 3 && m <= 5) return "봄";
-  return "가을";
+  if (m >= 6 && m <= 8) return en ? "Summer" : "여름";
+  if (m === 12 || m <= 2) return en ? "Winter" : "겨울";
+  if (m >= 3 && m <= 5) return en ? "Spring" : "봄";
+  return en ? "Autumn" : "가을";
 }
 
 export default function LocationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const en = usePathname().startsWith("/en/");
+  const locale = en ? "en" : "ko";
+  const t = (ko: string, english: string) => (en ? english : ko);
   const { id: locationId } = use(params);
 
   const [location, setLocation] = useState<KoreanLocation | null>(null);
@@ -199,14 +242,16 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
         await researchFilmingPermits(
           location.name.replace(/\[.*?\]/, "").trim(),
           addr,
-          location.region
+          location.region,
+          undefined,
+          locale
         )
       );
     } catch (err) {
       setPermitsError(
         err instanceof BackendUnreachableError
-          ? "백엔드 서버에 연결할 수 없습니다."
-          : "허가 조사를 완료하지 못했습니다. PARALLEL_API_KEY 설정을 확인하세요."
+          ? t("백엔드 서버에 연결할 수 없습니다.", "The backend server is unavailable.")
+          : t("허가 조사를 완료하지 못했습니다. PARALLEL_API_KEY 설정을 확인하세요.", "Permit research could not be completed. Check the PARALLEL_API_KEY configuration.")
       );
     } finally {
       setPermitsLoading(false);
@@ -223,8 +268,8 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
     const windowAz = parseWindowAzimuth(location.specs.window_direction);
     const incidence = windowIncidence(pos, windowAz);
     const sunWindow = directSunWindow(dateStr, lat, lon, windowAz, times);
-    const description = describeLight(timeOfDay, times, pos, windowAz);
-    const advisory = bookingAdvisory(bookStart, bookEnd, times, sunWindow, seasonLabelFor(dateStr));
+    const description = describeLight(timeOfDay, times, pos, windowAz, locale);
+    const advisory = bookingAdvisory(bookStart, bookEnd, times, sunWindow, seasonLabelFor(dateStr, en), locale);
     return { lat, lon, times, pos, phase, windowAz, incidence, sunWindow, description, advisory };
   }, [location, dateStr, timeOfDay, bookStart, bookEnd]);
 
@@ -283,13 +328,13 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
   if (!location || !solar) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white text-slate-500 font-sans">
-        <p>로케이션 정보를 불러오는 중입니다...</p>
+        <p>{t("로케이션 정보를 불러오는 중입니다...", "Loading location details...")}</p>
       </div>
     );
   }
 
   const focal = zoomToFocal(orbit.zoom);
-  const angleName = tiltLabel(orbit.tilt);
+  const angleName = tiltLabel(orbit.tilt, en);
   const isDefaultZoom = orbit.zoom === DEFAULT_ORBIT.zoom;
   // Past ~60° the camera would have to stand outside a small room's walls, and
   // the model correctly declines rather than inventing an impossible viewpoint.
@@ -359,7 +404,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
       pushHistory({
         url: result.image_data_url,
         key,
-        label: `${tiltLabel(orbit.tilt)} · ${formatHour(timeOfDay)}`,
+        label: `${tiltLabel(orbit.tilt, en)} · ${formatHour(timeOfDay)}`,
         orbit: { ...orbit },
         timeOfDay,
         dateStr,
@@ -390,7 +435,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
         // The source licences this photograph for display but forbids altering
         // it. Say so plainly rather than showing a generic failure.
         setAiError(
-          "이 사진은 출처 표시 후 게시만 허용되고 변경이 금지된 자료라, AI 재생성을 할 수 없습니다."
+          t("이 사진은 출처 표시 후 게시만 허용되고 변경이 금지된 자료라, AI 재생성을 할 수 없습니다.", "This source permits attributed display but prohibits modifications, so an AI preview cannot be generated.")
         );
         setGenerating(false);
         return;
@@ -398,7 +443,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
       if (err instanceof GeminiKeyMissingError) {
         setAiUnavailable(true);
       } else {
-        setAiError("생성에 실패했어요. 잠시 후 다시 시도해주세요.");
+        setAiError(t("생성에 실패했어요. 잠시 후 다시 시도해주세요.", "Generation failed. Please try again shortly."));
         console.error(err);
       }
     } finally {
@@ -411,7 +456,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
   const runBatch = async () => {
     if (!rawImage || batchRunning) return;
     setBatchRunning(true);
-    setBatchFrames(BEST_ANGLES.map((a) => ({ name: a.name, url: null })));
+    setBatchFrames(BEST_ANGLES.map((a) => ({ name: en ? BEST_ANGLE_NAMES_EN[a.name] : a.name, url: null })));
     await Promise.all(
       BEST_ANGLES.map(async (a, i) => {
         try {
@@ -430,14 +475,14 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
           });
           setBatchFrames((prev) => {
             const next = [...prev];
-            next[i] = { name: a.name, url: r.image_data_url };
+            next[i] = { name: en ? BEST_ANGLE_NAMES_EN[a.name] : a.name, url: r.image_data_url };
             return next;
           });
         } catch (err) {
           if (err instanceof GeminiKeyMissingError) setAiUnavailable(true);
           setBatchFrames((prev) => {
             const next = [...prev];
-            next[i] = { name: a.name, url: null, failed: true };
+            next[i] = { name: en ? BEST_ANGLE_NAMES_EN[a.name] : a.name, url: null, failed: true };
             return next;
           });
         }
@@ -456,7 +501,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
   }[solar.advisory.tone];
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100">
+    <div lang={locale} className="min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100">
       {/* Navigation Header */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200 px-4 md:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -465,17 +510,17 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
             className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center space-x-2 text-slate-900 font-bold"
           >
             <ChevronLeft className="w-5 h-5" />
-            <span>목록으로</span>
+            <span>{t("목록으로", "Back to catalogue")}</span>
           </button>
           {/* Arriving from a script conversation is a round trip: without this
               the only way back is browser history, which loses the thread. */}
           {returnChatId && (
             <a
-              href={`/?tab=script&chat=${returnChatId}`}
+              href={`${en ? "/en" : "/"}?tab=script&chat=${returnChatId}`}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-full transition-colors"
             >
               <MessageSquare className="w-4 h-4" />
-              <span className="hidden sm:inline">대화로 돌아가기</span>
+              <span className="hidden sm:inline">{t("대화로 돌아가기", "Back to conversation")}</span>
             </a>
           )}
         </div>
@@ -485,11 +530,11 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
         <div className="flex items-center space-x-2">
           <button className="p-2 hover:bg-gray-100 rounded-full flex items-center space-x-2 text-slate-700 font-semibold">
             <Share className="w-4 h-4" />
-            <span className="hidden sm:inline">공유</span>
+            <span className="hidden sm:inline">{t("공유", "Share")}</span>
           </button>
           <button className="p-2 hover:bg-gray-100 rounded-full flex items-center space-x-2 text-slate-700 font-semibold">
             <Heart className="w-4 h-4" />
-            <span className="hidden sm:inline">저장</span>
+            <span className="hidden sm:inline">{t("저장", "Save")}</span>
           </button>
         </div>
       </header>
@@ -533,7 +578,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
           <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] z-10">
             <div className="flex items-center space-x-3 px-5 py-3 bg-slate-900/85 rounded-2xl border border-white/10 text-white text-sm font-bold">
               <Loader2 className="w-5 h-5 animate-spin text-indigo-300" />
-              <span>{angleName} · {formatHour(timeOfDay)}의 빛으로 생성 중...</span>
+              <span>{t(`${angleName} · ${formatHour(timeOfDay)}의 빛으로 생성 중...`, `Generating ${angleName} at ${formatHour(timeOfDay)}...`)}</span>
             </div>
           </div>
         )}
@@ -550,12 +595,12 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
           </h1>
           <div className="flex items-center flex-wrap gap-3 text-xs md:text-sm font-semibold text-white/85">
             <span className="flex items-center gap-1"><MapPin className="w-4 h-4" />{location.region}</span>
-            {location.specs.area_pyeong > 0 && <span>{location.specs.area_pyeong}평</span>}
-            {location.specs.ceiling_height_m > 0 && <span>천고 {location.specs.ceiling_height_m}m</span>}
+            {location.specs.area_pyeong > 0 && <span>{en ? `${location.specs.area_sqm} m²` : `${location.specs.area_pyeong}평`}</span>}
+            {location.specs.ceiling_height_m > 0 && <span>{t("천고", "Ceiling")} {location.specs.ceiling_height_m}m</span>}
             <span>{location.specs.window_direction}</span>
           </div>
           <div className="pt-1">
-            <FavoriteButton location={location} showLabel />
+            <FavoriteButton location={location} showLabel locale={locale} />
           </div>
         </div>
 
@@ -565,8 +610,8 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
             <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             <span>{showingRender ? (isDirty ? "OUTDATED" : "GENERATED") : "ORIGINAL"}</span>
           </div>
-          <div>LENS {isDefaultZoom ? "원본" : `${focal}mm`} · ROT {orbit.rotation}° · TILT {orbit.tilt}°</div>
-          <div>{formatHour(timeOfDay)} · {PHASE_LABELS[solar.phase]}</div>
+          <div>LENS {isDefaultZoom ? t("원본", "ORIGINAL") : `${focal}mm`} · ROT {orbit.rotation}° · TILT {orbit.tilt}°</div>
+          <div>{formatHour(timeOfDay)} · {en ? ({ night: "Night", blue_hour: "Blue hour", golden_hour: "Golden hour", morning: "Morning", midday: "Midday", afternoon: "Afternoon" }[solar.phase]) : PHASE_LABELS[solar.phase]}</div>
           <div>SUN {Math.max(0, Math.round(solar.pos.altitudeDeg))}° / AZ {Math.round(solar.pos.azimuthDeg)}°</div>
         </div>
 
@@ -600,12 +645,12 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
               <Sparkles className="w-3 h-3" />
               <span>
                 {comparing
-                  ? "원본 매물 사진 (비교 중)"
+                  ? t("원본 매물 사진 (비교 중)", "Original listing photo (comparing)")
                   : showingRender
                   ? isDirty
-                    ? "이전 설정으로 생성된 이미지 · 다시 생성 필요"
-                    : "Gemini 생성 이미지"
-                  : "원본 매물 사진"}
+                    ? t("이전 설정으로 생성된 이미지 · 다시 생성 필요", "Image from previous settings · regenerate required")
+                    : t("Gemini 생성 이미지", "Gemini-generated image")
+                  : t("원본 매물 사진", "Original listing photo")}
               </span>
             </div>
 
@@ -623,7 +668,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                 }`}
               >
                 <Layers className="w-3 h-3" />
-                <span>{comparing ? "원본 표시 중" : "길게 눌러 원본 비교"}</span>
+                <span>{comparing ? t("원본 표시 중", "Showing original") : t("길게 눌러 원본 비교", "Hold to compare original")}</span>
               </button>
             )}
           </div>
@@ -633,7 +678,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
         {history.length > 0 && (
           <div className="hidden sm:flex absolute bottom-5 right-[436px] md:right-[448px] top-16 z-20 flex-col items-end gap-2 overflow-y-auto pr-0.5">
             <span className="sticky top-0 px-2 py-0.5 bg-black/55 backdrop-blur rounded-full font-mono text-[9px] uppercase tracking-wider text-white/60">
-              생성 {history.length}
+              {t("생성", "Generated")} {history.length}
             </span>
             {history.map((f) => {
               const active = render?.key === f.key && !isDirty;
@@ -665,20 +710,20 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-sm font-extrabold">
                 <Camera className="w-4 h-4 text-indigo-300" />
-                <span>카메라 · 조명 시뮬레이터</span>
+                <span>{t("카메라 · 조명 시뮬레이터", "Camera · lighting simulator")}</span>
               </div>
               {showingRender && (
                 <button
                   onClick={() => setRender(null)}
                   className="text-[11px] font-bold text-white/55 hover:text-white transition-colors"
                 >
-                  원본 보기
+                  {t("원본 보기", "View original")}
                 </button>
               )}
             </div>
             {aiUnavailable && (
               <p className="text-[11px] font-semibold text-amber-200/90 -mt-2">
-                GEMINI_API_KEY가 설정되지 않아 생성 기능을 쓸 수 없어요. 원본 사진만 표시됩니다.
+                {t("GEMINI_API_KEY가 설정되지 않아 생성 기능을 쓸 수 없어요. 원본 사진만 표시됩니다.", "GEMINI_API_KEY is not configured, so generation is unavailable. Only the original photo is shown.")}
               </p>
             )}
             {aiError && (
@@ -695,31 +740,31 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
               onBatchModeChange={setBatchMode}
               batchCount={BEST_ANGLES.length}
               disabled={batchRunning}
+              locale={locale}
             />
 
             <div className="space-y-1.5">
               <ScrubRow
-                label="회전" value={orbit.rotation} suffix="°" min={0} max={360} wrap
+                label={t("회전", "Rotation")} value={orbit.rotation} suffix="°" min={0} max={360} wrap
                 onChange={(v) => setOrbit({ ...orbit, rotation: v })} disabled={batchRunning}
               />
               <ScrubRow
-                label="상하 각도" value={orbit.tilt} suffix="°" min={-90} max={90}
+                label={t("상하 각도", "Tilt")} value={orbit.tilt} suffix="°" min={-90} max={90}
                 onChange={(v) => setOrbit({ ...orbit, tilt: v })} disabled={batchRunning}
               />
               <ScrubRow
-                label="줌" value={orbit.zoom} min={1} max={20}
-                display={isDefaultZoom ? "원본" : `${focal}mm`}
+                label={t("줌", "Zoom")} value={orbit.zoom} min={1} max={20}
+                display={isDefaultZoom ? t("원본", "Original") : `${focal}mm`}
                 onChange={(v) => setOrbit({ ...orbit, zoom: v })} disabled={batchRunning}
               />
               <p className="px-1 pt-0.5 text-[11px] leading-relaxed font-semibold text-white/65">
                 <span className="text-white/85">
-                  {angleName} · {rotationLabel(orbit.rotation)} · {isDefaultZoom ? "원본 화각" : `${focal}mm`}
+                  {angleName} · {rotationLabel(orbit.rotation, en)} · {isDefaultZoom ? t("원본 화각", "Original field of view") : `${focal}mm`}
                 </span>
-                {" — "}{tiltHint(orbit.tilt)}
+                {" — "}{tiltHint(orbit.tilt, en)}
                 {bigOrbit && (
                   <span className="text-amber-200/90">
-                    {" "}큰 각도로 도는 구도는 넓은 공간(야외·대형 스튜디오)에서 잘 나오고, 좁은 실내는
-                    카메라가 벽 밖으로 나가 원본과 비슷하게 나올 수 있어요.
+                    {" "}{t("큰 각도로 도는 구도는 넓은 공간(야외·대형 스튜디오)에서 잘 나오고, 좁은 실내는 카메라가 벽 밖으로 나가 원본과 비슷하게 나올 수 있어요.", "Large rotations work best in spacious locations. In a small interior, the camera may hit a wall and the result can remain close to the original.")}
                   </span>
                 )}
               </p>
@@ -728,9 +773,9 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
             {/* Date + season quick chips */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[11px] font-bold text-white/60">
-                <span className="flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> 촬영 날짜</span>
+                <span className="flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> {t("촬영 날짜", "Shoot date")}</span>
                 <span className="text-white/85">
-                  {seasonLabelFor(dateStr)} · 일출 {formatHour(solar.times.sunrise)} / 일몰 {formatHour(solar.times.sunset)}
+                  {seasonLabelFor(dateStr, en)} · {t("일출", "Sunrise")} {formatHour(solar.times.sunrise)} / {t("일몰", "Sunset")} {formatHour(solar.times.sunset)}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -741,8 +786,8 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                   className="flex-1 px-2.5 py-1.5 bg-white/10 border border-white/15 rounded-lg text-xs font-bold text-white [color-scheme:dark] focus:outline-none focus:border-indigo-400"
                 />
                 {[
-                  { label: "여름", date: `${new Date().getFullYear()}-06-21` },
-                  { label: "겨울", date: `${new Date().getFullYear()}-12-21` },
+                  { label: t("여름", "Summer"), date: `${new Date().getFullYear()}-06-21` },
+                  { label: t("겨울", "Winter"), date: `${new Date().getFullYear()}-12-21` },
                 ].map((s) => (
                   <button
                     key={s.label}
@@ -760,7 +805,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
             {/* Time-of-day timeline */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[11px] font-bold text-white/60">
-                <span className="flex items-center gap-1"><Sun className="w-3.5 h-3.5" /> 시간대</span>
+                <span className="flex items-center gap-1"><Sun className="w-3.5 h-3.5" /> {t("시간대", "Time of day")}</span>
                 <span className="px-2 py-0.5 bg-white/15 rounded-md text-white font-mono">{formatHour(timeOfDay)}</span>
               </div>
 
@@ -809,8 +854,8 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                 within 0.077 of each other and the dearest scored lowest. */}
             <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.06] border border-white/10">
               {([
-                ["fast", "빠르게", "약 15초 · 1.4K"],
-                ["detail", "크게", "약 40초 · 2.7K"],
+                ["fast", t("빠르게", "Faster"), t("약 15초 · 1.4K", "About 15 sec · 1.4K")],
+                ["detail", t("크게", "Larger"), t("약 40초 · 2.7K", "About 40 sec · 2.7K")],
               ] as const).map(([key, label, hint]) => (
                 <button
                   key={key}
@@ -838,22 +883,21 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
               }`}
             >
               {generating ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> 생성 중...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {t("생성 중...", "Generating...")}</>
               ) : showingRender && !isDirty ? (
-                <>현재 설정으로 생성 완료</>
+                <>{t("현재 설정으로 생성 완료", "Generated with current settings")}</>
               ) : (
-                <><Sparkles className="w-4 h-4" /> {isDirty ? "변경한 설정으로 다시 생성" : "이 설정으로 생성"}</>
+                <><Sparkles className="w-4 h-4" /> {isDirty ? t("변경한 설정으로 다시 생성", "Regenerate with changed settings") : t("이 설정으로 생성", "Generate with these settings")}</>
               )}
             </button>
             {angleNotAchieved && !isDirty && !generating && (
               <p className="-mt-2 px-1 text-[11px] font-semibold text-amber-200/90">
-                이 각도는 이 공간에서 구현되지 않았어요 — 좁은 공간에서는 카메라가 그만큼 이동할 수
-                없어 원본과 비슷한 구도로 나옵니다. 각도를 줄이거나 다른 사진으로 시도해보세요.
+                {t("이 각도는 이 공간에서 구현되지 않았어요 — 좁은 공간에서는 카메라가 그만큼 이동할 수 없어 원본과 비슷한 구도로 나옵니다. 각도를 줄이거나 다른 사진으로 시도해보세요.", "This angle could not be achieved in the space. In a narrow room, the camera cannot move that far, so the composition remains close to the original. Try a smaller rotation or another photo.")}
               </p>
             )}
             {isDirty && !generating && (
               <p className="-mt-2 px-1 text-[11px] font-semibold text-amber-200/90">
-                설정을 바꿨어요. 화면은 아직 이전 생성 결과입니다.
+                {t("설정을 바꿨어요. 화면은 아직 이전 생성 결과입니다.", "Settings changed. The viewer is still showing the previous result.")}
               </p>
             )}
 
@@ -864,9 +908,9 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                 className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 {batchRunning ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> {BEST_ANGLES.length}종 생성 중...</>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> {t(`${BEST_ANGLES.length}종 생성 중...`, `Generating ${BEST_ANGLES.length} angles...`)}</>
                 ) : (
-                  <><Sparkles className="w-4 h-4" /> 추천 앵글 {BEST_ANGLES.length}종 생성</>
+                  <><Sparkles className="w-4 h-4" /> {t(`추천 앵글 ${BEST_ANGLES.length}종 생성`, `Generate ${BEST_ANGLES.length} recommended angles`)}</>
                 )}
               </button>
             )}
@@ -894,9 +938,9 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                   className="w-full py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-xs font-bold text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {permitsLoading ? (
-                    <><Loader2 className="w-3.5 h-3.5 animate-spin" />촬영 허가 조건 조사 중…</>
+                    <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t("촬영 허가 조건 조사 중…", "Researching filming permit requirements...")}</>
                   ) : (
-                    <><ShieldCheck className="w-3.5 h-3.5" />{permits ? "허가 조건 다시 조사" : "촬영 허가 조건 조사"}</>
+                    <><ShieldCheck className="w-3.5 h-3.5" />{permits ? t("허가 조건 다시 조사", "Research permits again") : t("촬영 허가 조건 조사", "Research filming permits")}</>
                   )}
                 </button>
 
@@ -916,10 +960,10 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                       </div>
                     )}
                     {([
-                      ["허가", permits.permit_requirements],
-                      ["시간 제한", permits.curfew_hours],
-                      ["소음", permits.noise_limits],
-                      ["주차·상하차", permits.parking_and_loading],
+                      [t("허가", "Permits"), permits.permit_requirements],
+                      [t("시간 제한", "Filming hours"), permits.curfew_hours],
+                      [t("소음", "Noise"), permits.noise_limits],
+                      [t("주차·상하차", "Parking / loading"), permits.parking_and_loading],
                     ] as const).map(([label, value]) =>
                       value ? (
                         <div key={label} className="px-3 py-2 rounded-xl bg-white/5 border border-white/10">
@@ -929,7 +973,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                       ) : (
                         <div key={label} className="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/5">
                           <div className="text-[10px] font-bold text-white/35 mb-0.5">{label}</div>
-                          <div className="text-[11px] text-white/40">조사된 출처에 관련 규정이 없었습니다</div>
+                          <div className="text-[11px] text-white/40">{t("조사된 출처에 관련 규정이 없었습니다", "No relevant rule was established by the retrieved sources")}</div>
                         </div>
                       )
                     )}
@@ -937,7 +981,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                     {permits.citations.length > 0 && (
                       <div className="pt-1">
                         <div className="text-[10px] font-bold text-white/50 mb-1">
-                          출처 {permits.citations.length}건
+                          {t(`출처 ${permits.citations.length}건`, `${permits.citations.length} sources`)}
                         </div>
                         <div className="space-y-1">
                           {permits.citations.slice(0, 5).map((c, i) => (
@@ -967,11 +1011,11 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                   className="w-full py-3 px-4 bg-white hover:bg-slate-100 text-slate-900 font-extrabold text-sm rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  원본 페이지에서 예약하기
+                  {t("원본 페이지에서 예약하기", "Book on the original listing page")}
                 </a>
               ) : (
                 <div className="w-full py-3 px-4 bg-white/10 border border-white/15 text-white/70 font-bold text-xs rounded-xl text-center">
-                  원본 매물 링크를 확인할 수 없습니다
+                  {t("원본 매물 링크를 확인할 수 없습니다", "Original listing link is unavailable")}
                 </div>
               )}
             </div>
@@ -984,11 +1028,11 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
         <section className="max-w-[1400px] mx-auto px-4 md:px-8 pt-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              추천 앵글 {BEST_ANGLES.length}종
+              {t(`추천 앵글 ${BEST_ANGLES.length}종`, `${BEST_ANGLES.length} recommended angles`)}
             </h2>
             <span className="text-sm font-semibold text-slate-500">
-              {batchFrames.filter((f) => f.url).length}/{batchFrames.length} 완료
-              {" · "}{formatHour(timeOfDay)} 기준
+              {batchFrames.filter((f) => f.url).length}/{batchFrames.length} {t("완료", "complete")}
+              {" · "}{t(`${formatHour(timeOfDay)} 기준`, `at ${formatHour(timeOfDay)}`)}
             </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1009,7 +1053,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                   frameCache.current.set(key, f.url);
                   setRender({ url: f.url, key });
                   pushHistory({
-                    url: f.url, key, label: a.name, orbit: next,
+                    url: f.url, key, label: en ? BEST_ANGLE_NAMES_EN[a.name] : a.name, orbit: next,
                     timeOfDay, dateStr, sourceImage: rawImage,
                   });
                   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1021,7 +1065,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                   {f.url ? (
                     <img src={f.url} alt={f.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   ) : f.failed ? (
-                    <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-gray-400">생성 실패</div>
+                    <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-gray-400">{t("생성 실패", "Generation failed")}</div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-100 animate-pulse">
                       <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
@@ -1030,7 +1074,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                 </div>
                 <p className="mt-2 text-sm font-bold text-slate-800">{f.name}</p>
                 <p className="text-xs font-medium text-slate-500">
-                  회전 {BEST_ANGLES[i].rotation}° · 각도 {BEST_ANGLES[i].tilt}° · {zoomToFocal(BEST_ANGLES[i].zoom)}mm
+                  {t("회전", "Rotation")} {BEST_ANGLES[i].rotation}° · {t("각도", "Tilt")} {BEST_ANGLES[i].tilt}° · {zoomToFocal(BEST_ANGLES[i].zoom)}mm
                 </p>
               </button>
             ))}
@@ -1044,25 +1088,25 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
         <div className="flex flex-wrap items-center justify-between gap-4 pb-8 border-b border-gray-200">
           <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
             {location.price_per_hour > 0 ? (
-              <>₩{location.price_per_hour.toLocaleString()}<span className="text-base font-semibold text-slate-500 ml-1">/ 시간</span></>
+              <>₩{location.price_per_hour.toLocaleString()}<span className="text-base font-semibold text-slate-500 ml-1">{t("/ 시간", "/ hour")}</span></>
             ) : (
-              <span className="text-xl text-slate-600">가격 문의 (원본 매물 페이지 확인)</span>
+              <span className="text-xl text-slate-600">{t("가격 문의 (원본 매물 페이지 확인)", "Price on request (check the original listing)")}</span>
             )}
           </div>
           <div className="flex items-center gap-3 text-sm font-semibold text-slate-500">
             {solar.sunWindow ? (
               <span className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-full text-orange-700">
                 <Sun className="w-4 h-4" />
-                오늘 직사광 {formatHour(solar.sunWindow.start)}–{formatHour(solar.sunWindow.end)}
+                {t("오늘 직사광", "Direct sunlight today")} {formatHour(solar.sunWindow.start)}–{formatHour(solar.sunWindow.end)}
               </span>
             ) : (
               <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full">
                 <Sun className="w-4 h-4" />
-                {solar.windowAz === null ? "암막 스튜디오" : "간접광 위주 공간"}
+                {solar.windowAz === null ? t("암막 스튜디오", "Blackout studio") : t("간접광 위주 공간", "Primarily indirect light")}
               </span>
             )}
             <span className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full">
-              골든아워 {formatHour(solar.times.goldenEveningStart)}–{formatHour(solar.times.sunset)}
+              {t("골든아워", "Golden hour")} {formatHour(solar.times.goldenEveningStart)}–{formatHour(solar.times.sunset)}
             </span>
           </div>
         </div>
@@ -1070,46 +1114,46 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
         {/* Specs & Permit */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           <div className="space-y-6">
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">공간 스펙</h2>
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">{t("공간 스펙", "Space specifications")}</h2>
             <div className="grid grid-cols-2 gap-6 text-sm">
               <div className="space-y-1">
                 <div className="text-slate-500 font-semibold flex items-center space-x-1.5">
                   <Maximize2 className="w-4 h-4" />
-                  <span>면적 및 천고</span>
+                  <span>{t("면적 및 천고", "Area and ceiling")}</span>
                 </div>
                 <div className="font-bold text-slate-900">
                   {location.specs.area_pyeong > 0
-                    ? `${location.specs.area_pyeong}평 / 천고 ${location.specs.ceiling_height_m}m`
-                    : "매물 문의"}
+                    ? en ? `${location.specs.area_sqm} m² / ${location.specs.ceiling_height_m}m ceiling` : `${location.specs.area_pyeong}평 / 천고 ${location.specs.ceiling_height_m}m`
+                    : t("매물 문의", "Ask the listing provider")}
                 </div>
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500 font-semibold flex items-center space-x-1.5">
                   <Sun className="w-4 h-4" />
-                  <span>채광 및 방향</span>
+                  <span>{t("채광 및 방향", "Light and orientation")}</span>
                 </div>
                 <div className="font-bold text-slate-900">{location.specs.window_direction}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500 font-semibold flex items-center space-x-1.5">
                   <Zap className="w-4 h-4" />
-                  <span>전력 용량</span>
+                  <span>{t("전력 용량", "Power capacity")}</span>
                 </div>
                 <div className="font-bold text-slate-900">{location.specs.power_capacity}</div>
               </div>
               <div className="space-y-1">
                 <div className="text-slate-500 font-semibold flex items-center space-x-1.5">
                   <Car className="w-4 h-4" />
-                  <span>주차 및 하역</span>
+                  <span>{t("주차 및 하역", "Parking and loading")}</span>
                 </div>
                 <div className="font-bold text-slate-900">
-                  {location.specs.parking_spots > 0 ? `주차 ${location.specs.parking_spots}대` : "매물 문의"}
+                  {location.specs.parking_spots > 0 ? t(`주차 ${location.specs.parking_spots}대`, `${location.specs.parking_spots} parking spaces`) : t("매물 문의", "Ask the listing provider")}
                 </div>
               </div>
             </div>
 
             <div className="pt-6">
-              <h3 className="text-sm font-bold text-slate-500 mb-3 uppercase tracking-wider">공간 태그</h3>
+              <h3 className="text-sm font-bold text-slate-500 mb-3 uppercase tracking-wider">{t("공간 태그", "Space tags")}</h3>
               <div className="flex flex-wrap gap-2">
                 {location.tags.map((tag, i) => (
                   <span key={i} className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-md">
@@ -1122,12 +1166,12 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
 
           <div className="space-y-6">
             <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              인허가 및 출처
+              {t("인허가 및 출처", "Permits and sources")}
             </h2>
             <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
               <div className="flex items-center space-x-2 text-sm font-extrabold text-slate-800">
                 <ShieldCheck className="w-5 h-5 text-indigo-600" />
-                <span>수집 출처 리포트</span>
+                <span>{t("수집 출처 리포트", "Collected source report")}</span>
               </div>
               <p className="text-sm text-slate-700 leading-relaxed font-medium">
                 {location.permit_summary}
@@ -1153,7 +1197,7 @@ export default function LocationDetailPage({ params }: { params: Promise<{ id: s
                           ? "bg-amber-100 text-amber-700"
                           : "bg-slate-100 text-slate-600"
                       }`}>
-                        {cite.verification_status === "LIVE" ? "실시간 수집" : cite.verification_status}
+                        {cite.verification_status === "LIVE" ? t("실시간 수집", "Live source") : cite.verification_status}
                       </span>
                     </div>
                     <p className="text-slate-600 font-medium">"{cite.excerpt}"</p>

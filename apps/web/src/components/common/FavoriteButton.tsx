@@ -11,6 +11,7 @@ interface Props {
   variant?: "overlay" | "inline";
   showLabel?: boolean;
   className?: string;
+  locale?: "ko" | "en";
 }
 
 export const FavoriteButton: React.FC<Props> = ({
@@ -18,6 +19,7 @@ export const FavoriteButton: React.FC<Props> = ({
   variant = "overlay",
   showLabel = false,
   className = "",
+  locale = "ko",
 }) => {
   const [saved, toggle] = useSavedToggle(location);
 
@@ -30,8 +32,8 @@ export const FavoriteButton: React.FC<Props> = ({
     <button
       type="button"
       aria-pressed={saved}
-      aria-label={saved ? "저장 취소" : "저장하기"}
-      title={saved ? "저장 취소" : "저장하기"}
+      aria-label={saved ? (locale === "en" ? "Remove from saved" : "저장 취소") : (locale === "en" ? "Save" : "저장하기")}
+      title={saved ? (locale === "en" ? "Remove from saved" : "저장 취소") : (locale === "en" ? "Save" : "저장하기")}
       onClick={(e) => {
         // Cards are wrapped in a Link; without this the heart navigates.
         e.preventDefault();
@@ -51,7 +53,7 @@ export const FavoriteButton: React.FC<Props> = ({
             : "text-gray-500"
         }`}
       />
-      {showLabel && <span>{saved ? "저장됨" : "저장"}</span>}
+      {showLabel && <span>{saved ? (locale === "en" ? "Saved" : "저장됨") : (locale === "en" ? "Save" : "저장")}</span>}
     </button>
   );
 };

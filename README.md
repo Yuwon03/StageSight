@@ -21,7 +21,7 @@ No account is required. Saved activity stays in your browser. AI images are illu
 
 Next.js, FastAPI, SQLite, Google Gemini (`google-genai`) and Parallel Search (`parallel-web`). Both services run on Google Cloud Run. The backend uses a custom Python workflow, not an ADK runtime.
 
-English covers browsing, lighting previews and permit research. Source names remain Korean; screenplay matching and personal activity are not yet localized.
+The English version uses the same catalogue, screenplay matching, camera simulator and personal activity UI as the Korean version; only interface copy and sample content are localized. Original Korean listing names and source records remain unchanged for traceability.
 
 ## Run
 

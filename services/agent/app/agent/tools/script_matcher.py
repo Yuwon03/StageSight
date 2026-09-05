@@ -60,6 +60,7 @@ class ChatRequest(BaseModel):
     # question. Quoted to the model verbatim so the recommendation is about
     # that passage rather than about the whole screenplay.
     script_excerpt: Optional[str] = None
+    language: str = "ko"
 
 
 class ChatResponse(BaseModel):
@@ -239,7 +240,9 @@ def _reason_for(loc: KoreanLocation, needs: Dict[str, Any]) -> str:
 
 
 async def analyze_script_and_match_locations(
-    script_text: str, project_title: str = "마지막 일몰 (The Last Sunset)"
+    script_text: str,
+    project_title: str = "마지막 일몰 (The Last Sunset)",
+    language: str = "ko",
 ) -> ScriptAnalysisResponse:
     if catalog.size() == 0:
         return ScriptAnalysisResponse(
@@ -258,7 +261,37 @@ async def analyze_script_and_match_locations(
             from google.genai import types
 
             client = genai.Client(api_key=api_key)
-            prompt = f"""당신은 대한민국 영화 프로덕션의 로케이션 슈퍼바이저 AI, StageSight입니다.
+            if language == "en":
+                prompt = f"""You are StageSight, an AI location supervisor for film productions in South Korea.
+Analyse the screenplay scene by scene, identify spatial and lighting requirements, and select first and second choices only from the real locations below.
+
+[IMPORTANT]
+Every recommended_location_id must exist in the supplied list. Never invent a location.
+
+[REAL BOOKABLE LOCATIONS]
+{_summarize_for_prompt(sample)}
+
+[SCREENPLAY]
+{script_text[:4000]}
+
+Respond only with JSON:
+{{
+  "project_title": "{project_title}",
+  "thread_title": "A concise English noun phrase describing the screenplay",
+  "scenes": [{{
+    "scene_number": "Scene 14",
+    "scene_title": "Interior dining room - sunset",
+    "scene_summary": "Scene summary",
+    "mood": "Mood",
+    "time_of_day": "Sunset / golden hour (17:30)",
+    "required_space_type": "Required spatial conditions",
+    "recommended_location_ids": ["<real ID from list>", "<real ID from list>"],
+    "ai_recommendation_reason": "Why the space fits the scene"
+  }}],
+  "overall_production_advice": "Advice on scheduling and production movement"
+}}"""
+            else:
+                prompt = f"""당신은 대한민국 영화 프로덕션의 로케이션 슈퍼바이저 AI, StageSight입니다.
 아래 각본을 씬 단위로 분석해 각 씬의 공간적·조명적 요구사항을 파악하고,
 제공된 실제 로케이션 목록 중에서만 1순위와 2순위를 골라주세요.
 
@@ -395,7 +428,10 @@ async def chat_with_script_ai(req: ChatRequest) -> ChatResponse:
     anything invented is dropped.
     """
     if catalog.size() == 0:
-        return ChatResponse(reply=EMPTY_CATALOG_ADVICE, suggested_locations=[])
+        return ChatResponse(
+            reply=("The real-location catalogue is empty, so no recommendation can be made." if req.language == "en" else EMPTY_CATALOG_ADVICE),
+            suggested_locations=[],
+        )
 
     api_key = settings.GEMINI_API_KEY or os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -420,7 +456,29 @@ async def chat_with_script_ai(req: ChatRequest) -> ChatResponse:
 
     scene_block = f"\n[직전 각본 분석 결과]\n{req.current_scene_context}\n" if req.current_scene_context else ""
 
-    prompt = f"""당신은 대한민국 영화 프로덕션의 로케이션 슈퍼바이저 AI, StageSight입니다.
+    if req.language == "en":
+        prompt = f"""You are StageSight, an AI location supervisor for film productions in South Korea.
+Recommend locations only from the real bookable catalogue below while conversing with the user.
+
+[ABSOLUTE RULES]
+- Every recommended_location_id must exist in the supplied list. Never invent a location.
+- If nothing matches, say so and suggest which constraints could be relaxed.
+- Use prices, area and window orientation only when present in the catalogue; state when they are unknown.
+
+[REAL BOOKABLE LOCATIONS]
+{_summarize_for_prompt(sample)}
+{scene_block}{excerpt_block}
+[CONVERSATION]
+{history}
+
+Answer the user's latest question in English. Respond only with JSON:
+{{
+  "reply": "A conversational answer connecting each recommendation to the scene requirements",
+  "recommended_location_ids": ["<real ID from list>"],
+  "filter_summary": "One-line summary of applied filters, or an empty string"
+}}"""
+    else:
+        prompt = f"""당신은 대한민국 영화 프로덕션의 로케이션 슈퍼바이저 AI, StageSight입니다.
 사용자와 대화하며 아래 '실제 대관 가능 목록'에서만 장소를 추천합니다.
 
 [절대 규칙]

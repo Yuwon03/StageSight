@@ -6,9 +6,10 @@ import { FavoriteButton } from "@/components/common/FavoriteButton";
 
 interface LocationCardProps {
   location: KoreanLocation;
+  locale?: "ko" | "en";
 }
 
-export const LocationCard: React.FC<LocationCardProps> = ({ location }) => {
+export const LocationCard: React.FC<LocationCardProps> = ({ location, locale = "ko" }) => {
   const cleanName = location.name.replace(/\[.*?\]/, "").trim();
 
   // A reference record is a real place films have used, not a rentable listing.
@@ -31,20 +32,20 @@ export const LocationCard: React.FC<LocationCardProps> = ({ location }) => {
             corner a user reaches for. The NEW badge moves down-left to make
             room rather than sharing the spot. */}
         <div className="absolute top-2.5 right-2.5 z-10">
-          <FavoriteButton location={location} />
+          <FavoriteButton location={location} locale={locale} />
         </div>
 
         {/* Fresh find — server-derived, drops off 72h after first sighting */}
         {location.is_new && (
           <div className="absolute bottom-3 left-3 bg-rose-600 px-2 py-1 rounded-sm text-[11px] font-bold tracking-wide text-white shadow-md">
-            신규
+            {locale === "en" ? "NEW" : "신규"}
           </div>
         )}
 
         {/* Availability, when it is not the ordinary case */}
         {isReference && (
           <div className="absolute bottom-3 right-3 bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-sm text-[11px] font-bold tracking-wide text-white shadow-sm">
-            촬영 기록 · 대관 미확인
+            {locale === "en" ? "FILMING REFERENCE · RENTAL UNVERIFIED" : "촬영 기록 · 대관 미확인"}
           </div>
         )}
 
@@ -64,7 +65,7 @@ export const LocationCard: React.FC<LocationCardProps> = ({ location }) => {
           {location.specs.area_pyeong > 0 && (
             <div className="flex items-center space-x-1">
               <Maximize2 className="w-3.5 h-3.5" />
-              <span>{location.specs.area_pyeong}평</span>
+              <span>{locale === "en" ? `${location.specs.area_sqm} m²` : `${location.specs.area_pyeong}평`}</span>
             </div>
           )}
           <div className="flex items-center space-x-1">
@@ -79,13 +80,13 @@ export const LocationCard: React.FC<LocationCardProps> = ({ location }) => {
               <span className="font-bold text-slate-900 text-base">
                 ₩{location.price_per_hour.toLocaleString()}
               </span>
-              <span className="text-sm font-medium text-slate-500">/ 시간</span>
+              <span className="text-sm font-medium text-slate-500">{locale === "en" ? "/ hour" : "/ 시간"}</span>
             </>
           ) : isReference ? (
             // No price is known and none is invented.
-            <span className="text-sm font-semibold text-slate-500">대관 조건 직접 확인 필요</span>
+            <span className="text-sm font-semibold text-slate-500">{locale === "en" ? "Confirm rental terms directly" : "대관 조건 직접 확인 필요"}</span>
           ) : (
-            <span className="text-sm font-semibold text-slate-500">가격 원본 페이지 확인</span>
+            <span className="text-sm font-semibold text-slate-500">{locale === "en" ? "Check original page for price" : "가격 원본 페이지 확인"}</span>
           )}
         </div>
       </div>

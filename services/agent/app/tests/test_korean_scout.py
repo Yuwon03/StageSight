@@ -147,6 +147,15 @@ async def test_empty_catalog_reports_honestly_instead_of_inventing():
 
 
 @pytest.mark.asyncio
+async def test_empty_catalog_english_chat_stays_in_english():
+    chat = await chat_with_script_ai(
+        ChatRequest(messages=[ChatMessage(role="user", content="Find a forest")], language="en")
+    )
+    assert chat.reply == "The real-location catalogue is empty, so no recommendation can be made."
+    assert chat.suggested_locations == []
+
+
+@pytest.mark.asyncio
 async def test_chat_budget_filter_never_returns_over_budget():
     catalog.replace_all([
         build_location(1, _meta(id=1, price_low=50000), _gallery()),

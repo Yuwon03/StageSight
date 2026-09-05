@@ -18,13 +18,18 @@ import { useUserState } from "@/lib/useUser";
 
 const LIMIT = 60;
 
-export default function Home() {
+type Locale = "ko" | "en";
+
+export function StageSightHome({ locale = "ko" }: { locale?: Locale }) {
+  const en = locale === "en";
+  const t = (ko: string, english: string) => (en ? english : ko);
   const [activeTab, setActiveTab] = useState<"catalog" | "script">("catalog");
 
   // Saved count and avatar come from the local user store until accounts exist.
   const { profile, saved } = useUserState();
   const savedCount = saved.length;
-  const profileInitial = (profile.displayName || "게").trim().charAt(0);
+  const displayName = en && profile.displayName === "게스트" ? "Guest" : profile.displayName;
+  const profileInitial = (displayName || t("게", "G")).trim().charAt(0);
 
   // The tab has to live in the URL, not only in state. It used to be state
   // alone, so switching to 탐색 left the address bar saying ?tab=script; opening
@@ -226,7 +231,7 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-gray-900 font-sans">
+    <div lang={locale} className="min-h-screen flex flex-col bg-white text-gray-900 font-sans">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200 px-4 md:px-10 xl:px-20 py-4 flex flex-wrap items-center justify-between gap-4">
         {/* Brand Logo */}
@@ -245,7 +250,9 @@ export default function Home() {
         </div>
 
         {/* Navigation Tabs */}
-        <Link href="/en" lang="en" className="text-sm font-semibold text-indigo-700 underline">English</Link>
+        <Link href={en ? "/" : "/en"} lang={en ? "ko" : "en"} className="text-sm font-semibold text-indigo-700 underline">
+          {en ? "한국어" : "English"}
+        </Link>
         <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-full text-sm font-semibold">
           <button
             onClick={() => selectTab("catalog")}
@@ -256,7 +263,7 @@ export default function Home() {
             }`}
           >
             <Compass className="w-4 h-4" />
-            <span>탐색 ({searchQuery.trim() ? displayedLocations.length : totalCount.toLocaleString()})</span>
+            <span>{t("탐색", "Explore")} ({searchQuery.trim() ? displayedLocations.length : totalCount.toLocaleString(en ? "en-US" : "ko-KR")})</span>
           </button>
           <button
             onClick={() => selectTab("script")}
@@ -267,15 +274,15 @@ export default function Home() {
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>대본 AI 매칭</span>
+            <span>{t("대본 AI 매칭", "Script AI Matching")}</span>
           </button>
         </div>
 
         {/* User Profile / Extras */}
         <div className="hidden md:flex items-center space-x-3 text-sm text-gray-500">
           <Link
-            href="/me"
-            title="내 활동"
+            href={en ? "/en/me" : "/me"}
+            title={t("내 활동", "My activity")}
             className="flex items-center gap-2 border border-gray-200 pl-3 pr-2 py-1.5 rounded-full shadow-sm hover:shadow-md hover:border-gray-300 transition-all bg-white"
           >
             {/* The saved count is the whole reason to visit the page, so it is
@@ -297,12 +304,14 @@ export default function Home() {
           <div className="space-y-6 animate-in fade-in duration-300">
             {/* Category Filter Bar */}
             <CategoryBar
+              locale={locale}
               selectedCategory={selectedCategory}
               onSelectCategory={setSelectedCategory}
             />
 
             {/* Filter & Search Bar with Crawl Button */}
             <FilterBar
+              locale={locale}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               selectedRegion={selectedRegion}
@@ -321,9 +330,9 @@ export default function Home() {
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center space-x-3 text-sm text-amber-800">
                 <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                 <span className="font-semibold">
-                  백엔드 서버(localhost:8080)에 연결할 수 없습니다. 이 앱은 실제 매물만 표시하므로 대체 데이터를 보여주지 않습니다.
+                  {t("백엔드 서버(localhost:8080)에 연결할 수 없습니다. 이 앱은 실제 매물만 표시하므로 대체 데이터를 보여주지 않습니다.", "The backend server (localhost:8080) is unavailable. This app only displays real listings, so it does not show substitute data.")}
                   <code className="mx-1 px-1.5 py-0.5 bg-amber-100 rounded text-xs">cd services/agent && uvicorn app.main:app --port 8080</code>
-                  으로 서버를 실행해주세요.
+                  {t("으로 서버를 실행해주세요.", "to start the server.")}
                 </span>
               </div>
             )}
@@ -343,25 +352,25 @@ export default function Home() {
                 <Search className="w-12 h-12 text-gray-400 mx-auto" />
                 {totalCount === 0 && !offline ? (
                   <>
-                    <h3 className="text-lg font-bold text-gray-900">카탈로그가 비어 있습니다</h3>
+                    <h3 className="text-lg font-bold text-gray-900">{t("카탈로그가 비어 있습니다", "The catalogue is empty")}</h3>
                     {/* The crawler fills this on its own; there is nothing for a
                         visitor to trigger, and on the deployed snapshot a manual
                         ingest could not have persisted anything anyway. */}
                     <p className="text-sm text-gray-500 max-w-md mx-auto">
                       {snapshot.isSnapshot
-                        ? "이 서버의 카탈로그는 배포 시점의 스냅샷입니다."
-                        : "수집기가 카탈로그를 자동으로 채웁니다. 잠시 후 다시 확인해주세요."}
+                        ? t("이 서버의 카탈로그는 배포 시점의 스냅샷입니다.", "This server uses a catalogue snapshot from deployment time.")
+                        : t("수집기가 카탈로그를 자동으로 채웁니다. 잠시 후 다시 확인해주세요.", "The collector is filling the catalogue automatically. Please check again shortly.")}
                     </p>
                   </>
                 ) : (
                   <>
-                    <h3 className="text-lg font-bold text-gray-900">검색 결과가 없습니다</h3>
-                    <p className="text-sm text-gray-500">다른 필터를 선택하거나 검색어를 변경해보세요.</p>
+                    <h3 className="text-lg font-bold text-gray-900">{t("검색 결과가 없습니다", "No results found")}</h3>
+                    <p className="text-sm text-gray-500">{t("다른 필터를 선택하거나 검색어를 변경해보세요.", "Try another filter or search term.")}</p>
                     <button
                       onClick={handleResetFilters}
                       className="px-6 py-2 bg-gray-900 text-white text-sm font-semibold rounded-full hover:bg-gray-800 transition-colors mt-2"
                     >
-                      모두 지우기
+                      {t("모두 지우기", "Clear all")}
                     </button>
                   </>
                 )}
@@ -371,11 +380,11 @@ export default function Home() {
                 <div className="flex items-center justify-between text-sm font-semibold text-gray-500">
                   <span className="flex items-center gap-2">
                     {searchQuery.trim()
-                      ? `검색 결과 ${displayedLocations.length}건`
-                      : `${totalCount.toLocaleString()}건`}
+                      ? t(`검색 결과 ${displayedLocations.length}건`, `${displayedLocations.length} results`)
+                      : t(`${totalCount.toLocaleString()}건`, `${totalCount.toLocaleString("en-US")} locations`)}
                     {freshCount > 0 && freshCount < totalCount * 0.5 && (
                       <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-xs font-bold">
-                        최근 72시간 신규 {freshCount.toLocaleString()}건
+                        {t(`최근 72시간 신규 ${freshCount.toLocaleString()}건`, `${freshCount.toLocaleString("en-US")} new in 72 hours`)}
                       </span>
                     )}
                   </span>
@@ -388,15 +397,15 @@ export default function Home() {
                       className="w-4 h-4 accent-indigo-600"
                     />
                     <span className="text-xs font-bold text-gray-600">
-                      촬영 기록 장소 포함
+                      {t("촬영 기록 장소 포함", "Include filming references")}
                     </span>
                   </label>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
                   {displayedLocations.map((loc) => (
-                    <Link key={loc.id} href={`/location/${loc.id}`} className="group">
-                      <LocationCard location={loc} />
+                    <Link key={loc.id} href={`${en ? "/en" : ""}/location/${loc.id}`} className="group">
+                      <LocationCard location={loc} locale={locale} />
                     </Link>
                   ))}
                 </div>
@@ -407,17 +416,17 @@ export default function Home() {
                     {isLoadingMore ? (
                       <div className="flex items-center space-x-2 text-gray-500 text-sm font-semibold">
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        <span>매물 더 불러오는 중...</span>
+                        <span>{t("매물 더 불러오는 중...", "Loading more locations...")}</span>
                       </div>
                     ) : locations.length < totalCount ? (
                       <button
                         onClick={() => loadLocations(false)}
                         className="px-8 py-3 bg-gray-900 text-white text-sm font-bold rounded-full hover:bg-gray-800 transition-colors"
                       >
-                        매물 더보기 ({(totalCount - locations.length).toLocaleString()}건 남음)
+                        {t(`매물 더보기 (${(totalCount - locations.length).toLocaleString()}건 남음)`, `Load more (${(totalCount - locations.length).toLocaleString("en-US")} remaining)`)}
                       </button>
                     ) : (
-                      <span className="text-sm font-semibold text-gray-400">모든 매물을 확인했습니다.</span>
+                      <span className="text-sm font-semibold text-gray-400">{t("모든 매물을 확인했습니다.", "You have reached the end of the catalogue.")}</span>
                     )}
                   </div>
                 )}
@@ -428,7 +437,7 @@ export default function Home() {
 
         {activeTab === "script" && (
           <div className="animate-in fade-in duration-300">
-            <ScriptMatcherPanel />
+            <ScriptMatcherPanel locale={locale} />
           </div>
         )}
       </main>
@@ -440,4 +449,8 @@ export default function Home() {
       </footer>
     </div>
   );
+}
+
+export default function Home() {
+  return <StageSightHome locale="ko" />;
 }

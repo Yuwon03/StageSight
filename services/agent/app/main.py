@@ -309,6 +309,7 @@ from pydantic import BaseModel
 class ScriptRequestPayload(BaseModel):
     script_text: str = DEFAULT_KOREAN_SCRIPT
     project_title: str = "마지막 일몰 (The Last Sunset)"
+    language: str = "ko"
 
 from fastapi import File, UploadFile
 from app.script_upload import extract_script, UploadRejected, MAX_UPLOAD_BYTES
@@ -350,7 +351,11 @@ async def match_script_scenes(payload: ScriptRequestPayload):
     Uses Gemini through the Google Gen AI SDK to extract scene requirements and
     match them against real catalogue records.
     """
-    return await analyze_script_and_match_locations(payload.script_text, payload.project_title)
+    return await analyze_script_and_match_locations(
+        payload.script_text,
+        payload.project_title,
+        language="en" if payload.language == "en" else "ko",
+    )
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_scouting_assistant(req: ChatRequest):
