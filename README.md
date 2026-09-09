@@ -19,7 +19,7 @@ No account is required. Saved activity stays in your browser. AI images are illu
 
 ## Stack
 
-Next.js, FastAPI, SQLite, Google Gemini (`google-genai`) and Parallel Search (`parallel-web`). Both services run on Google Cloud Run. The backend uses a custom Python workflow, not an ADK runtime.
+Next.js, FastAPI, SQL storage, Google Gemini and Parallel Search (`parallel-web`). Gemini is called through **Vertex AI** with the `google-genai` SDK, authenticated by the Cloud Run service account; the Gemini API key is kept only as a fallback. Both services run on Google Cloud Run, built by Cloud Build and served from Artifact Registry. The backend uses a custom Python workflow, not an ADK runtime.
 
 The English version uses the same catalogue, screenplay matching, camera simulator and personal activity UI as the Korean version. Venue names, regions, specifications and source summaries are translated for display, while the original Korean records and source links remain unchanged for traceability.
 

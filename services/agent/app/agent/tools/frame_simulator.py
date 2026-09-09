@@ -25,6 +25,7 @@ _FRAME_CACHE: Dict[Tuple[str, int, str, str, str], str] = {}
 _CACHE_MAX = 200
 
 from app.gemini_models import (  # noqa: E402
+    genai_client,
     IMAGE_MODELS,
     IMAGE_TIERS,
     DEFAULT_IMAGE_TIER,
@@ -588,7 +589,7 @@ async def simulate_frame_with_gemini(req: FrameSimRequest) -> FrameSimResponse:
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    client = genai_client(api_key)
     last_err: Optional[Exception] = None
 
     tier = IMAGE_TIERS.get(req.image_tier) or IMAGE_TIERS[DEFAULT_IMAGE_TIER]

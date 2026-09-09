@@ -27,7 +27,7 @@ from typing import Dict, List, Optional
 import httpx
 
 from app.config import settings
-from app.gemini_models import TEXT_MODELS, try_models
+from app.gemini_models import genai_client, TEXT_MODELS, try_models
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ def get_inventory(image_url: str, image_bytes: Optional[bytes] = None) -> SceneI
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=api_key)
+        client = genai_client(api_key)
         resp = try_models(
             TEXT_MODELS,
             lambda m: client.models.generate_content(

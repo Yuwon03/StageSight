@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from app.config import settings
-from app.gemini_models import TEXT_MODELS
+from app.gemini_models import genai_client, TEXT_MODELS
 from app.models.schemas import CreativeIntentExtraction, SceneInput
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ async def analyze_scene_intent(scene: SceneInput) -> CreativeIntentExtraction:
             from google import genai
             from google.genai import types
             
-            client = genai.Client(api_key=api_key)
+            client = genai_client(api_key)
             prompt = SCENE_PROMPT_TEMPLATE.format(
                 project_name=scene.project_name,
                 scene_number=scene.scene_number,

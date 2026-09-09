@@ -7,7 +7,10 @@ matching to the deterministic path. Keeping the candidates in one place means a
 retirement is a one-line fix, and callers try the list in order.
 """
 import logging
-from typing import Callable, List, TypeVar
+import threading
+from typing import Any, Callable, List, TypeVar
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +71,86 @@ IMAGE_MODELS: List[str] = [
     "gemini-2.5-flash-image",
     "gemini-3.1-flash-image",
 ]
+
+
+# --- How Gemini is reached -------------------------------------------------
+#
+# Vertex AI on Google Cloud, authenticated by the runtime service account. The
+# API-key path (Gemini Developer API) stays as a fallback so local development
+# and the evaluation harness run without cloud credentials.
+#
+# The fallback is not decorative. Constructing a Vertex client succeeds even
+# when the service account cannot actually call the API — the failure only
+# surfaces on the first generate_content, which in this codebase is inside a
+# user request. So the first client build makes one tiny probe call: if Vertex
+# is not usable here, this process says so once in the log and serves every
+# subsequent request over the API key instead of failing eight features at once.
+#
+# Vertex needs `global`, not the Cloud Run region — see config.VERTEX_LOCATION.
+
+_client_lock = threading.Lock()
+_vertex_client: Any | None = None
+_vertex_unusable = False
+
+
+def _probe(client: Any) -> None:
+    """Cheapest possible call that proves this client can actually generate."""
+    client.models.generate_content(model=TEXT_MODELS[0], contents="ok")
+
+
+def genai_client(api_key: str | None = None) -> Any:
+    """Return a Gemini client: Vertex AI when usable, the API key otherwise.
+
+    Only the Vertex client is cached, because only it costs a probe call. The
+    API-key client is rebuilt per call exactly as every call site used to build
+    it, so `api_key` keeps meaning what it meant before, and nothing is shared
+    between callers that did not share it already.
+    """
+    global _vertex_client, _vertex_unusable
+    from google import genai
+
+    if settings.USE_VERTEX_AI and settings.GOOGLE_CLOUD_PROJECT and not _vertex_unusable:
+        with _client_lock:
+            if _vertex_client is not None:
+                return _vertex_client
+            if not _vertex_unusable:
+                try:
+                    client = genai.Client(
+                        vertexai=True,
+                        project=settings.GOOGLE_CLOUD_PROJECT,
+                        location=settings.VERTEX_LOCATION,
+                    )
+                    _probe(client)
+                    logger.info(
+                        "Gemini via Vertex AI (project=%s, location=%s)",
+                        settings.GOOGLE_CLOUD_PROJECT,
+                        settings.VERTEX_LOCATION,
+                    )
+                    _vertex_client = client
+                    return client
+                except Exception as e:
+                    _vertex_unusable = True
+                    logger.warning(
+                        "Vertex AI unusable (%s); falling back to the Gemini API key",
+                        str(e)[:200],
+                    )
+
+    key = api_key or settings.GEMINI_API_KEY
+    if not key:
+        raise RuntimeError(
+            "No Gemini credentials. Set USE_VERTEX_AI=true with a service "
+            "account that has roles/aiplatform.user, or set GEMINI_API_KEY."
+        )
+    return genai.Client(api_key=key)
+
+
+def reset_genai_client() -> None:
+    """Drop the cached Vertex client. Tests only."""
+    global _vertex_client, _vertex_unusable
+    with _client_lock:
+        _vertex_client = None
+        _vertex_unusable = False
+
 
 T = TypeVar("T")
 

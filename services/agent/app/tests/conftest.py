@@ -8,6 +8,12 @@ import os
 import tempfile
 from pathlib import Path
 
+# Vertex AI is the production path, but reaching it needs cloud credentials and
+# a live probe call. Tests must not depend on either, so the suite pins the
+# API-key path; genai_client's Vertex branch is covered by monkeypatched unit
+# tests in test_genai_client.py instead.
+os.environ["USE_VERTEX_AI"] = "false"
+
 _TMP_DB = Path(tempfile.gettempdir()) / "stagesight-test-catalog.db"
 os.environ["STAGESIGHT_DB_PATH"] = str(_TMP_DB)
 for suffix in ("", "-wal", "-shm"):

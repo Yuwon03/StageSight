@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from app import catalog
 from app.config import settings
-from app.gemini_models import TEXT_MODELS, try_models
+from app.gemini_models import genai_client, TEXT_MODELS, try_models
 from app.models.korean_locations import KoreanLocation
 from app.agent.tools.location_localizer import localize_locations
 
@@ -270,7 +270,7 @@ async def analyze_script_and_match_locations(
             from google import genai
             from google.genai import types
 
-            client = genai.Client(api_key=api_key)
+            client = genai_client(api_key)
             if language == "en":
                 prompt = f"""You are StageSight, an AI location supervisor for film productions in South Korea.
 Analyse the screenplay scene by scene, identify spatial and lighting requirements, and select first and second choices only from the real locations below.
@@ -537,7 +537,7 @@ Answer the user's latest question in English. Respond only with JSON:
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    client = genai_client(api_key)
     used = {"model": ""}
 
     def _call(m: str):

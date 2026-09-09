@@ -17,7 +17,7 @@ import logging
 from typing import Dict, Tuple
 
 from app.config import settings
-from app.gemini_models import TEXT_MODELS, try_models
+from app.gemini_models import genai_client, TEXT_MODELS, try_models
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ def get_light_plan(
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        client = genai_client()
         response = try_models(
             TEXT_MODELS,
             lambda model: client.models.generate_content(

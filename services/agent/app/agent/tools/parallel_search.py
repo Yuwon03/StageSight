@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.models.schemas import ParallelCitation, LocationConstraintsReport
-from app.gemini_models import TEXT_MODELS, try_models
+from app.gemini_models import genai_client, TEXT_MODELS, try_models
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +221,7 @@ JSON으로만 응답:
 
         if language == "en":
             prompt += "\nWrite all JSON values in English, 1–2 sentences each. Preserve evidence-only rules and empty values for unsupported claims."
-        client = genai.Client(api_key=api_key)
+        client = genai_client(api_key)
         resp = await asyncio.to_thread(
             lambda: try_models(
                 TEXT_MODELS,

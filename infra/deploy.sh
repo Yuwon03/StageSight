@@ -32,6 +32,13 @@ need() { [ -n "${!1:-}" ] || { echo "!! $1 가 .env 에 없습니다 — $2"; MI
 MISSING=0
 need GEMINI_API_KEY   "AI 프레임 시뮬레이터와 대본 매칭이 503을 반환합니다"
 need PARALLEL_API_KEY "촬영 허가 조사(파트너 트랙 요건)가 동작하지 않습니다"
+
+# Gemini runs on Vertex AI, authenticated by the Cloud Run service account
+# (roles/aiplatform.user). GEMINI_API_KEY stays set as the fallback: if Vertex
+# is ever unreachable the service keeps answering instead of failing every AI
+# feature, and switching back needs no rebuild:
+#   gcloud run services update stagesight-agent --region us-central1 \
+#     --update-env-vars USE_VERTEX_AI=false
 need TOURAPI_KEY      "한국관광공사 소스가 비활성화됩니다"
 [ "$MISSING" = "1" ] && echo "   (계속 진행합니다 — 해당 기능만 비활성화됩니다)"
 
@@ -76,7 +83,7 @@ YAML
     --platform=managed --allow-unauthenticated \
     --min-instances=0 --max-instances=5 \
     --memory=2Gi --cpu=2 --timeout=300 \
-    --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},GEMINI_API_KEY=${GEMINI_API_KEY:-},PARALLEL_API_KEY=${PARALLEL_API_KEY:-},TOURAPI_KEY=${TOURAPI_KEY:-}" \
+    --set-env-vars="GOOGLE_CLOUD_PROJECT=${PROJECT_ID},GOOGLE_CLOUD_LOCATION=${REGION},USE_VERTEX_AI=${USE_VERTEX_AI:-true},VERTEX_LOCATION=${VERTEX_LOCATION:-global},GEMINI_API_KEY=${GEMINI_API_KEY:-},PARALLEL_API_KEY=${PARALLEL_API_KEY:-},TOURAPI_KEY=${TOURAPI_KEY:-}" \
     --quiet
 }
 
@@ -117,5 +124,11 @@ esac
 
 echo
 echo "=== 배포 완료 ==="
-[ "${TARGET}" != "frontend" ] && echo "  API : $(gcloud run services describe "${BACKEND_SERVICE}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
-[ "${TARGET}" != "backend"  ] && echo "  WEB : $(gcloud run services describe "${FRONTEND_SERVICE}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
+# `if`, not `[ ] && echo`: under `set -e` a false test on the LAST line of the
+# script makes a successful deploy exit 1, which reads as a failed deploy.
+if [ "${TARGET}" != "frontend" ]; then
+  echo "  API : $(gcloud run services describe "${BACKEND_SERVICE}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
+fi
+if [ "${TARGET}" != "backend" ]; then
+  echo "  WEB : $(gcloud run services describe "${FRONTEND_SERVICE}" --project="${PROJECT_ID}" --region="${REGION}" --format='value(status.url)')"
+fi
